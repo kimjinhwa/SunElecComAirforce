@@ -1,4 +1,5 @@
-const snmp = require('net-snmp');
+import snmp from 'net-snmp';
+import os from 'os';
 
 /**
  * MIB-2 System Group (RFC1213-MIB)
@@ -53,7 +54,7 @@ class Mib2System {
         name: 'sysName',
         oid: '1.3.6.1.2.1.1.5',
         type: snmp.ObjectType.OctetString,
-        value: process.env.SNMP_SYS_NAME || require('os').hostname(),
+        value: process.env.SNMP_SYS_NAME || os.hostname(),
         access: 'read-write'
       },
       {
@@ -137,4 +138,4 @@ class Mib2System {
   }
 }
 
-module.exports = Mib2System;
+export default Mib2System;

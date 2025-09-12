@@ -1,15 +1,18 @@
 /**
- * 배터리 데이터를 Modbus를 통해 읽어오는 클래스 (8개 모듈 지원)
- * IFTECH 48V 배터리 시스템용
+ * 배터리 시스템 Modbus 통신 클래스 (8개 모듈 지원)
+ * MIB OID를 Modbus 레지스터 주소로 매핑하여 데이터를 읽고 씁니다.
  */
 
-const { BatterySystemData } = require('../models/BatteryData');
-
+const startModuleId = 39;
+const installedModuleCount = 1;
 class BatteryModbusReader {
     constructor(modbusClient) {
         this.modbusClient = modbusClient;
-        this.batterySystem = new BatterySystemData();
         this.registerMappings = this.initializeRegisterMappings();
+        this.isReading = false;
+        this.readInterval = null;
+        this.readIntervalMs = 1000; // 1초마다 읽기
+        this.simulationMode = process.env.SIMULATION_MODE === 'true' || false;
     }
 
     /**
@@ -18,334 +21,257 @@ class BatteryModbusReader {
      */
     initializeRegisterMappings() {
         return {
-            // 모듈 1 레지스터 매핑
-            module1: {
-                cellVoltages: {
-                    startAddress: 0x0000, // 0-15: 셀 1-16 전압
-                    count: 16
-                },
-                packInfo: {
-                    cellMaxVoltage: 0x0010,    // 최대 셀 전압
-                    cellMinVoltage: 0x0011,    // 최소 셀 전압
-                    cellAvgVoltage: 0x0012,    // 평균 셀 전압
-                    avgTemp: 0x0013,           // 평균 온도
-                    ambTemp: 0x0014,           // 주변 온도
-                    totalVoltage: 0x0015,      // 총 전압
-                    packVoltage: 0x0016,       // 팩 전압
-                    chargeCurrent: 0x0017,     // 충전 전류
-                    dischargeCurrent: 0x0018,  // 방전 전류
-                    soc: 0x0019,               // SOC
-                    soh: 0x001A,               // SOH
-                    ratedCapacity: 0x001B,     // 정격 용량
-                    remainingCapacity: 0x001C, // 잔여 용량
-                    runningState: 0x001D       // 운전 상태
-                },
-                alarms: {
-                    cellOvervoltageAlarms: 0x0020,     // 셀 과전압 알람
-                    cellUndervoltageAlarms: 0x0021,    // 셀 저전압 알람
-                    packOvervoltageAlarm: 0x0027,      // 팩 과전압 알람
-                    packUndervoltageAlarm: 0x0028,     // 팩 저전압 알람
-                    chargeOvercurrentAlarm: 0x0029,    // 충전 과전류 알람
-                    dischargeOvercurrentAlarm: 0x002A, // 방전 과전류 알람
-                    socLowAlarm: 0x002B                // SOC 저알람
-                },
-                parameters: {
-                    cellOvervoltageAlarmValue: 0x0030,     // 셀 과전압 알람 임계값
-                    cellOvervoltageAlarmRecovery: 0x0031,  // 셀 과전압 알람 복구 임계값
-                    cellUndervoltageAlarmValue: 0x0032,    // 셀 저전압 알람 임계값
-                    cellUndervoltageAlarmRecovery: 0x0033, // 셀 저전압 알람 복구 임계값
-                    socLowAlarmValue: 0x0035               // SOC 저알람 임계값
-                }
+            // 공통 레지스터 매핑 (모든 모듈이 동일한 주소 사용, Modbus ID만 다름)
+            cellVoltages: {
+                startAddress: 0x100D,// 0-15: 셀 1-16 전압
+                count: 16
             },
-            // 모듈 2-8도 동일한 패턴으로 매핑 (주소 오프셋: +100, +200, +300, +400, +500, +600, +700)
-            module2: {
-                cellVoltages: {
-                    startAddress: 0x0100,
-                    count: 16
-                },
-                packInfo: {
-                    cellMaxVoltage: 0x0110,
-                    cellMinVoltage: 0x0111,
-                    cellAvgVoltage: 0x0112,
-                    avgTemp: 0x0113,
-                    ambTemp: 0x0114,
-                    totalVoltage: 0x0115,
-                    packVoltage: 0x0116,
-                    chargeCurrent: 0x0117,
-                    dischargeCurrent: 0x0118,
-                    soc: 0x0119,
-                    soh: 0x011A,
-                    ratedCapacity: 0x011B,
-                    remainingCapacity: 0x011C,
-                    runningState: 0x011D
-                },
-                alarms: {
-                    cellOvervoltageAlarms: 0x0120,
-                    cellUndervoltageAlarms: 0x0121,
-                    packOvervoltageAlarm: 0x0127,
-                    packUndervoltageAlarm: 0x0128,
-                    chargeOvercurrentAlarm: 0x0129,
-                    dischargeOvercurrentAlarm: 0x012A,
-                    socLowAlarm: 0x012B
-                },
-                parameters: {
-                    cellOvervoltageAlarmValue: 0x0130,
-                    cellOvervoltageAlarmRecovery: 0x0131,
-                    cellUndervoltageAlarmValue: 0x0132,
-                    cellUndervoltageAlarmRecovery: 0x0133,
-                    socLowAlarmValue: 0x0135
-                }
+            packInfo: {
+                startAddress: 0x0fff,// 0-15: 셀 1-16 전압
+                packVoltage: 0x0fff,       // 팩 전압
+                CurrentValue: 0x1000,      // 전류값
+                remainingCapacity: 0x1001, // 잔여 용량
+                AverageCellTemp: 0x1002,   // 평균 셀 온도
+                AmbientTemp: 0x1003,       // 주변 온도
+                WarnningFlag: 0x1004,      // 경고 플래그
+                ProtechtionFlag: 0x1005,   // 보호 플래그
+                FaultStatus: 0x1006,       // 오류 상태
+                SOC: 0x1007,               // SOC
+                CirculateNumber: 0x1008,   // 순환 번호
+                SOH: 0x1009,               // SOH
+                PCBTemp: 0x100A,           // PCB 온도
+                HistoryDischargeCapacity: 0x100B, // 방전 용량
+                InstalledCellNumber: 0x100C, // 설치된 셀 수
+                CellVoltage0: 0x100D,       // 셀 전압 0
+                CellVoltage1: 0x100E,       // 셀 전압 1
+                CellVoltage2: 0x100F,       // 셀 전압 2
+                CellVoltage3: 0x1010,       // 셀 전압 3
+                CellVoltage4: 0x1011,       // 셀 전압 4
+                CellVoltage5: 0x1012,       // 셀 전압 5
+                CellVoltage6: 0x1013,       // 셀 전압 6
+                CellVoltage7: 0x1014,       // 셀 전압 7
+                CellVoltage8: 0x1015,       // 셀 전압 8
+                CellVoltage9: 0x1016,       // 셀 전압 9
+                CellVoltage10: 0x1017,      // 셀 전압 10
+                CellVoltage11: 0x1018,      // 셀 전압 11
+                CellVoltage12: 0x1019,      // 셀 전압 12
+                CellVoltage13: 0x101A,      // 셀 전압 13
+                CellVoltage14: 0x101B,      // 셀 전압 14
+                CellVoltage15: 0x101C,      // 셀 전압 15
+                TemperatureSensorNumber: 0x101D, // 온도 센서 수
+                TempCell0: 0x101E,          // 셀 온도 0
+                TempCell1: 0x101F,          // 셀 온도 1
+                TempCell2: 0x1020,          // 셀 온도 2
+                TempCell3: 0x1021,          // 셀 온도 3
+                TempCell4: 0x1022,          // 셀 온도 4
+                TempCell5: 0x1023,          // 셀 온도 5
+                TempCell6: 0x1024,          // 셀 온도 6
+                TempCell7: 0x1025,          // 셀 온도 7
+                TempCell8: 0x1026,          // 셀 온도 8
+                TempCell9: 0x1027,          // 셀 온도 9
+                TempCell10: 0x1028,         // 셀 온도 10
+                TempCell11: 0x1029,         // 셀 온도 11
+                TempCell12: 0x102A,         // 셀 온도 12
+                TempCell13: 0x102B,         // 셀 온도 13
+                TempCell14: 0x102C,         // 셀 온도 14
+                TempCell15: 0x102D,         // 셀 온도 15
+                FullCapacity: 0x102E,   //  최대전류용량(A)
+                RemainChargeTime: 0x102F,   // 잔여 충전 시간
+                RemainDischargeTime: 0x1030, // 잔여 방전 시간
+                CellUVState: 0x1031,         // 셀 UV 상태
+                count:51
             },
-            module3: {
-                cellVoltages: {
-                    startAddress: 0x0200,
-                    count: 16
-                },
-                packInfo: {
-                    cellMaxVoltage: 0x0210,
-                    cellMinVoltage: 0x0211,
-                    cellAvgVoltage: 0x0212,
-                    avgTemp: 0x0213,
-                    ambTemp: 0x0214,
-                    totalVoltage: 0x0215,
-                    packVoltage: 0x0216,
-                    chargeCurrent: 0x0217,
-                    dischargeCurrent: 0x0218,
-                    soc: 0x0219,
-                    soh: 0x021A,
-                    ratedCapacity: 0x021B,
-                    remainingCapacity: 0x021C,
-                    runningState: 0x021D
-                },
-                alarms: {
-                    cellOvervoltageAlarms: 0x0220,
-                    cellUndervoltageAlarms: 0x0221,
-                    packOvervoltageAlarm: 0x0227,
-                    packUndervoltageAlarm: 0x0228,
-                    chargeOvercurrentAlarm: 0x0229,
-                    dischargeOvercurrentAlarm: 0x022A,
-                    socLowAlarm: 0x022B
-                },
-                parameters: {
-                    cellOvervoltageAlarmValue: 0x0230,
-                    cellOvervoltageAlarmRecovery: 0x0231,
-                    cellUndervoltageAlarmValue: 0x0232,
-                    cellUndervoltageAlarmRecovery: 0x0233,
-                    socLowAlarmValue: 0x0235
-                }
+            alarms: {
+                // Warning Flag (0x1004) 비트 매핑
+                warningFlag: 0x1004,
+                cellOvervoltageAlarms: 0,    // Bit0: 셀 과전압 알람
+                cellUndervoltageAlarms: 1,   // Bit1: 셀 저전압 알람
+                packOvervoltageAlarm: 2,     // Bit2: 팩 과전압 알람
+                packUndervoltageAlarm: 3,    // Bit3: 팩 저전압 알람
+                chargeOvercurrentAlarm: 4,   // Bit4: 충전 과전류 알람
+                dischargeOvercurrentAlarm: 5, // Bit5: 방전 과전류 알람
+                cellOverTemperatureAlarm: 6, // Bit6: 셀 과온도 알람
+                cellUnderTemperatureAlarm: 7, // Bit7: 셀 저온도 알람
+                envOverTemperatureAlarm: 8,  // Bit8: 환경 과온도 알람
+                envUnderTemperatureAlarm: 9, // Bit9: 환경 저온도 알람
+                pcbOverTemperatureAlarm: 10, // Bit10: PCB 과온도 알람
+                socLowAlarm: 11,             // Bit11: SOC 저알람
+                diffVoltAlarm: 12,           // Bit12: 차압 알람
+                reserve_1: 13,               // Bit13: 예약
+                reserve_2: 14,               // Bit14: 예약
+                reserve_3: 15,               // Bit15: 예약
+                
+                // Protection Flag (0x1005) 비트 매핑
+                protectionFlag: 0x1005,
+                cellOvervoltageProtect: 0,   // Bit0: 셀 과전압 보호
+                cellUndervoltageProtect: 1,  // Bit1: 셀 저전압 보호
+                packOvervoltageProtect: 2,   // Bit2: 팩 과전압 보호
+                packUndervoltageProtect: 3,  // Bit3: 팩 저전압 보호
+                scProtect: 4,                // Bit4: 단락 보호
+                chgOverTemperatureProtect: 6, // Bit6: 충전 과온도 보호
+                chgUnderTemperatureProtect: 7, // Bit7: 충전 저온도 보호
+                disgOverTemperatureProtect: 8, // Bit8: 방전 과온도 보호
+                disgUnderTemperatureProtect: 9, // Bit9: 방전 저온도 보호
+                cocProtect: 10,              // Bit10: 충전 과전류 보호
+                docProtect: 11,              // Bit11: 방전 과전류 보호
+                antiTheftLock: 12,           // Bit12: 방도락
+                
+                // Fault Status (0x1006) 비트 매핑
+                faultStatus: 0x1006,
+                frontEndSampleError: 0,      // Bit0: 프론트엔드 샘플 에러
+                tempSenseDisconnect: 1,      // Bit1: 온도 센서 연결 끊김
+                inversedGraftError: 2,       // Bit2: 역접속 에러
+                charging: 8,                 // Bit8: 충전 중
+                discharging: 9,              // Bit9: 방전 중
+                chgMosConnect: 10,           // Bit10: 충전 MOS 연결
+                disgMosConnect: 11,          // Bit11: 방전 MOS 연결
+                limitCurrentEnable: 12,      // Bit12: 제한 전류 활성화
+                fullyCharged: 13,            // Bit13: 완전 충전
+                moduleFailureInOperation: 14, // Bit14: 모듈 고장이지만 동작 중
+                moduleOutOfOperation: 15,    // Bit15: 모듈 동작 중단
+                
+                // Cell UV State (0x1031) 비트 매핑
+                cellUVState: 0x1031,
+                cellUV0: 0,                  // Bit0: 셀 0 UV
+                cellUV1: 1,                  // Bit1: 셀 1 UV
+                cellUV2: 2,                  // Bit2: 셀 2 UV
+                cellUV3: 3,                  // Bit3: 셀 3 UV
+                cellUV4: 4,                  // Bit4: 셀 4 UV
+                cellUV5: 5,                  // Bit5: 셀 5 UV
+                cellUV6: 6,                  // Bit6: 셀 6 UV
+                cellUV7: 7,                  // Bit7: 셀 7 UV
+                cellUV8: 8,                  // Bit8: 셀 8 UV
+                cellUV9: 9,                  // Bit9: 셀 9 UV
+                cellUV10: 10,                // Bit10: 셀 10 UV
+                cellUV11: 11,                // Bit11: 셀 11 UV
+                cellUV12: 12,                // Bit12: 셀 12 UV
+                cellUV13: 13,                // Bit13: 셀 13 UV
+                cellUV14: 14,                // Bit14: 셀 14 UV
+                cellUV15: 15,                // Bit15: 셀 15 UV
             },
-            module4: {
-                cellVoltages: {
-                    startAddress: 0x0300,
-                    count: 16
-                },
-                packInfo: {
-                    cellMaxVoltage: 0x0310,
-                    cellMinVoltage: 0x0311,
-                    cellAvgVoltage: 0x0312,
-                    avgTemp: 0x0313,
-                    ambTemp: 0x0314,
-                    totalVoltage: 0x0315,
-                    packVoltage: 0x0316,
-                    chargeCurrent: 0x0317,
-                    dischargeCurrent: 0x0318,
-                    soc: 0x0319,
-                    soh: 0x031A,
-                    ratedCapacity: 0x031B,
-                    remainingCapacity: 0x031C,
-                    runningState: 0x031D
-                },
-                alarms: {
-                    cellOvervoltageAlarms: 0x0320,
-                    cellUndervoltageAlarms: 0x0321,
-                    packOvervoltageAlarm: 0x0327,
-                    packUndervoltageAlarm: 0x0328,
-                    chargeOvercurrentAlarm: 0x0329,
-                    dischargeOvercurrentAlarm: 0x032A,
-                    socLowAlarm: 0x032B
-                },
-                parameters: {
-                    cellOvervoltageAlarmValue: 0x0330,
-                    cellOvervoltageAlarmRecovery: 0x0331,
-                    cellUndervoltageAlarmValue: 0x0332,
-                    cellUndervoltageAlarmRecovery: 0x0333,
-                    socLowAlarmValue: 0x0335
-                }
-            },
-            module5: {
-                cellVoltages: {
-                    startAddress: 0x0400,
-                    count: 16
-                },
-                packInfo: {
-                    cellMaxVoltage: 0x0410,
-                    cellMinVoltage: 0x0411,
-                    cellAvgVoltage: 0x0412,
-                    avgTemp: 0x0413,
-                    ambTemp: 0x0414,
-                    totalVoltage: 0x0415,
-                    packVoltage: 0x0416,
-                    chargeCurrent: 0x0417,
-                    dischargeCurrent: 0x0418,
-                    soc: 0x0419,
-                    soh: 0x041A,
-                    ratedCapacity: 0x041B,
-                    remainingCapacity: 0x041C,
-                    runningState: 0x041D
-                },
-                alarms: {
-                    cellOvervoltageAlarms: 0x0420,
-                    cellUndervoltageAlarms: 0x0421,
-                    packOvervoltageAlarm: 0x0427,
-                    packUndervoltageAlarm: 0x0428,
-                    chargeOvercurrentAlarm: 0x0429,
-                    dischargeOvercurrentAlarm: 0x042A,
-                    socLowAlarm: 0x042B
-                },
-                parameters: {
-                    cellOvervoltageAlarmValue: 0x0430,
-                    cellOvervoltageAlarmRecovery: 0x0431,
-                    cellUndervoltageAlarmValue: 0x0432,
-                    cellUndervoltageAlarmRecovery: 0x0433,
-                    socLowAlarmValue: 0x0435
-                }
-            },
-            module6: {
-                cellVoltages: {
-                    startAddress: 0x0500,
-                    count: 16
-                },
-                packInfo: {
-                    cellMaxVoltage: 0x0510,
-                    cellMinVoltage: 0x0511,
-                    cellAvgVoltage: 0x0512,
-                    avgTemp: 0x0513,
-                    ambTemp: 0x0514,
-                    totalVoltage: 0x0515,
-                    packVoltage: 0x0516,
-                    chargeCurrent: 0x0517,
-                    dischargeCurrent: 0x0518,
-                    soc: 0x0519,
-                    soh: 0x051A,
-                    ratedCapacity: 0x051B,
-                    remainingCapacity: 0x051C,
-                    runningState: 0x051D
-                },
-                alarms: {
-                    cellOvervoltageAlarms: 0x0520,
-                    cellUndervoltageAlarms: 0x0521,
-                    packOvervoltageAlarm: 0x0527,
-                    packUndervoltageAlarm: 0x0528,
-                    chargeOvercurrentAlarm: 0x0529,
-                    dischargeOvercurrentAlarm: 0x052A,
-                    socLowAlarm: 0x052B
-                },
-                parameters: {
-                    cellOvervoltageAlarmValue: 0x0530,
-                    cellOvervoltageAlarmRecovery: 0x0531,
-                    cellUndervoltageAlarmValue: 0x0532,
-                    cellUndervoltageAlarmRecovery: 0x0533,
-                    socLowAlarmValue: 0x0535
-                }
-            },
-            module7: {
-                cellVoltages: {
-                    startAddress: 0x0600,
-                    count: 16
-                },
-                packInfo: {
-                    cellMaxVoltage: 0x0610,
-                    cellMinVoltage: 0x0611,
-                    cellAvgVoltage: 0x0612,
-                    avgTemp: 0x0613,
-                    ambTemp: 0x0614,
-                    totalVoltage: 0x0615,
-                    packVoltage: 0x0616,
-                    chargeCurrent: 0x0617,
-                    dischargeCurrent: 0x0618,
-                    soc: 0x0619,
-                    soh: 0x061A,
-                    ratedCapacity: 0x061B,
-                    remainingCapacity: 0x061C,
-                    runningState: 0x061D
-                },
-                alarms: {
-                    cellOvervoltageAlarms: 0x0620,
-                    cellUndervoltageAlarms: 0x0621,
-                    packOvervoltageAlarm: 0x0627,
-                    packUndervoltageAlarm: 0x0628,
-                    chargeOvercurrentAlarm: 0x0629,
-                    dischargeOvercurrentAlarm: 0x062A,
-                    socLowAlarm: 0x062B
-                },
-                parameters: {
-                    cellOvervoltageAlarmValue: 0x0630,
-                    cellOvervoltageAlarmRecovery: 0x0631,
-                    cellUndervoltageAlarmValue: 0x0632,
-                    cellUndervoltageAlarmRecovery: 0x0633,
-                    socLowAlarmValue: 0x0635
-                }
-            },
-            module8: {
-                cellVoltages: {
-                    startAddress: 0x0700,
-                    count: 16
-                },
-                packInfo: {
-                    cellMaxVoltage: 0x0710,
-                    cellMinVoltage: 0x0711,
-                    cellAvgVoltage: 0x0712,
-                    avgTemp: 0x0713,
-                    ambTemp: 0x0714,
-                    totalVoltage: 0x0715,
-                    packVoltage: 0x0716,
-                    chargeCurrent: 0x0717,
-                    dischargeCurrent: 0x0718,
-                    soc: 0x0719,
-                    soh: 0x071A,
-                    ratedCapacity: 0x071B,
-                    remainingCapacity: 0x071C,
-                    runningState: 0x071D
-                },
-                alarms: {
-                    cellOvervoltageAlarms: 0x0720,
-                    cellUndervoltageAlarms: 0x0721,
-                    packOvervoltageAlarm: 0x0727,
-                    packUndervoltageAlarm: 0x0728,
-                    chargeOvercurrentAlarm: 0x0729,
-                    dischargeOvercurrentAlarm: 0x072A,
-                    socLowAlarm: 0x072B
-                },
-                parameters: {
-                    cellOvervoltageAlarmValue: 0x0730,
-                    cellOvervoltageAlarmRecovery: 0x0731,
-                    cellUndervoltageAlarmValue: 0x0732,
-                    cellUndervoltageAlarmRecovery: 0x0733,
-                    socLowAlarmValue: 0x0735
-                }
+            parameters: {
+                cellOvervoltageAlarmValue: 0x0030,     // 셀 과전압 알람 임계값
+                cellOvervoltageAlarmRecovery: 0x0031,  // 셀 과전압 알람 복구 임계값
+                cellUndervoltageAlarmValue: 0x0032,    // 셀 저전압 알람 임계값
+                cellUndervoltageAlarmRecovery: 0x0033, // 셀 저전압 알람 복구 임계값
+                socLowAlarmValue: 0x0035               // SOC 저알람 임계값
             }
         };
     }
 
     /**
-     * 특정 모듈의 셀 전압 데이터 읽기
-     * @param {number} moduleId - 모듈 ID (1-3)
-     * @returns {Promise<Array<number>>} 셀 전압 배열
+     * 비트 연산 헬퍼 함수들
      */
-    async readCellVoltages(moduleId) {
+    
+    /**
+     * 특정 비트가 설정되어 있는지 확인
+     * @param {number} value - 확인할 값
+     * @param {number} bitPosition - 비트 위치 (0-15)
+     * @returns {boolean} 비트가 설정되어 있으면 true
+     */
+    isBitSet(value, bitPosition) {
+        return (value & (1 << bitPosition)) !== 0;
+    }
+
+    /**
+     * 16비트 값을 2개의 8비트 값으로 분해
+     * @param {number} value - 16비트 값
+     * @returns {Object} { lowByte, highByte }
+     */
+    split16Bit(value) {
+        return {
+            lowByte: value & 0xFF,      // 하위 8비트
+            highByte: (value >> 8) & 0xFF  // 상위 8비트
+        };
+    }
+
+    /**
+     * 2개의 8비트 값을 16비트 값으로 결합
+     * @param {number} lowByte - 하위 8비트
+     * @param {number} highByte - 상위 8비트
+     * @returns {number} 16비트 값
+     */
+    combine16Bit(lowByte, highByte) {
+        return (highByte << 8) | lowByte;
+    }
+
+    /**
+     * 모든 모듈의 데이터를 병렬로 읽기
+     * @returns {Promise<Object>} 모든 모듈의 데이터
+     */
+    async readAllModulesData() {
+        const promises = [];
+        
+        // 모듈 39-46에 대한 데이터 읽기 Promise 생성
+        for (let moduleId = startModuleId; moduleId <= startModuleId + installedModuleCount; moduleId++) {
+            promises.push(this.readModuleData(moduleId));
+        }
+        
         try {
-            const mapping = this.registerMappings[`module${moduleId}`];
-            if (!mapping) {
-                throw new Error(`모듈 ${moduleId}의 매핑을 찾을 수 없습니다.`);
-            }
+            const results = await Promise.all(promises);
+            const moduleData = {};
+            
+            // 결과를 모듈별로 정리
+            results.forEach((data, index) => {
+                const moduleId = index + startModuleId; // 39부터 시작
+                moduleData[`module${moduleId}`] = data;
+            });
+            
+            return moduleData;
+        } catch (error) {
+            console.error('모든 모듈 데이터 읽기 실패:', error.message);
+            throw error;
+        }
+    }
 
-            const result = await this.modbusClient.readHoldingRegisters(
-                mapping.cellVoltages.startAddress,
-                mapping.cellVoltages.count
+    /**
+     * 특정 모듈의 모든 데이터 읽기
+     * @param {number} moduleId - 모듈 ID (39-46)
+     * @returns {Promise<Object>} 모듈 데이터
+     */
+    async readModuleData(moduleId) {
+        try {
+            // Modbus ID 설정 (모듈 ID와 동일)
+            this.modbusClient.setID(moduleId);
+            
+            const packData = await this.readPackDataAll(moduleId);
+
+            return {
+                cellVoltages: packData, // readPackDataAll에서 반환된 데이터를 cellVoltages로 사용
+                packInfo: {}, // 추후 구현
+                alarms: {}, // 추후 구현
+                parameters: {}, // 추후 구현
+                timestamp: new Date().toISOString()
+            };
+        } catch (error) {
+            console.error(`모듈 ${moduleId} 데이터 읽기 실패:`, error.message);
+            throw error;
+        }
+    }
+
+    /**
+     * 특정 모듈의 셀 전압 읽기
+     * @param {number} moduleId - 모듈 ID (39-46)
+     * @returns {Promise<Array>} 셀 전압 배열
+     */
+    async readPackDataAll(moduleId) {
+        // 시뮬레이션 모드인 경우 가짜 데이터 반환
+        if (this.simulationMode) {
+            return this.generateSimulatedCellVoltages(moduleId);
+        }
+
+        try {
+            const mapping = this.registerMappings.packInfo;
+            //const mapping = this.registerMappings.packInfo;
+            console.log("mapping.startAddress",mapping.startAddress, "mapping.count", mapping.count);
+            const result = await this.modbusClient.readInputRegister(
+                moduleId,
+                mapping.startAddress, 
+                mapping.count
             );
-
-            // Modbus 레지스터 값(mV)을 배열로 변환
-            return result.data.map(value => value);
+            console.log("result.data", result.data);
+            
+            return result.data.map(voltage => Math.round(voltage * 0.1)); // mV 단위로 변환
         } catch (error) {
             console.error(`모듈 ${moduleId} 셀 전압 읽기 실패:`, error.message);
             return new Array(16).fill(0);
@@ -353,209 +279,258 @@ class BatteryModbusReader {
     }
 
     /**
-     * 특정 모듈의 팩 정보 읽기
-     * @param {number} moduleId - 모듈 ID (1-3)
-     * @returns {Promise<Object>} 팩 정보 객체
+     * 시뮬레이션 모드용 셀 전압 데이터 생성
+     * @param {number} moduleId - 모듈 ID
+     * @returns {Array} 시뮬레이션 셀 전압 배열
      */
-    async readPackInfo(moduleId) {
-        try {
-            const mapping = this.registerMappings[`module${moduleId}`];
-            if (!mapping) {
-                throw new Error(`모듈 ${moduleId}의 매핑을 찾을 수 없습니다.`);
-            }
-
-            const packInfo = {};
-            const packInfoMapping = mapping.packInfo;
-
-            // 각 팩 정보 레지스터를 개별적으로 읽기
-            for (const [key, address] of Object.entries(packInfoMapping)) {
-                try {
-                    const result = await this.modbusClient.readHoldingRegisters(address, 1);
-                    packInfo[key] = result.data[0];
-                } catch (error) {
-                    console.warn(`모듈 ${moduleId} ${key} 읽기 실패:`, error.message);
-                    packInfo[key] = 0;
-                }
-            }
-
-            return packInfo;
-        } catch (error) {
-            console.error(`모듈 ${moduleId} 팩 정보 읽기 실패:`, error.message);
-            return {};
+    generateSimulatedCellVoltages(moduleId) {
+        const baseVoltage = 3800 + (moduleId * 10); // 모듈별 기본 전압
+        const voltages = [];
+        
+        for (let i = 0; i < 16; i++) {
+            // 각 셀마다 약간의 변동 추가 (±50mV)
+            const variation = Math.floor(Math.random() * 100) - 50;
+            const voltage = Math.max(3500, Math.min(4200, baseVoltage + variation));
+            voltages.push(voltage);
         }
+        
+        return voltages;
     }
 
-    /**
-     * 특정 모듈의 알람 상태 읽기
-     * @param {number} moduleId - 모듈 ID (1-3)
-     * @returns {Promise<Object>} 알람 상태 객체
-     */
-    async readAlarms(moduleId) {
+
+    async writeParameter(moduleId, parameterKey, value) {
         try {
-            const mapping = this.registerMappings[`module${moduleId}`];
-            if (!mapping) {
-                throw new Error(`모듈 ${moduleId}의 매핑을 찾을 수 없습니다.`);
+            const parameterMapping = this.registerMappings.parameters;
+            const address = parameterMapping[parameterKey];
+            
+            if (address === undefined) {
+                throw new Error(`파라미터 ${parameterKey}를 찾을 수 없습니다.`);
             }
 
-            const alarms = {};
-            const alarmMapping = mapping.alarms;
-
-            // 각 알람 레지스터를 개별적으로 읽기
-            for (const [key, address] of Object.entries(alarmMapping)) {
-                try {
-                    const result = await this.modbusClient.readHoldingRegisters(address, 1);
-                    alarms[key] = result.data[0];
-                } catch (error) {
-                    console.warn(`모듈 ${moduleId} ${key} 읽기 실패:`, error.message);
-                    alarms[key] = 0;
-                }
-            }
-
-            return alarms;
-        } catch (error) {
-            console.error(`모듈 ${moduleId} 알람 상태 읽기 실패:`, error.message);
-            return {};
-        }
-    }
-
-    /**
-     * 특정 모듈의 파라미터 읽기
-     * @param {number} moduleId - 모듈 ID (1-3)
-     * @returns {Promise<Object>} 파라미터 객체
-     */
-    async readParameters(moduleId) {
-        try {
-            const mapping = this.registerMappings[`module${moduleId}`];
-            if (!mapping) {
-                throw new Error(`모듈 ${moduleId}의 매핑을 찾을 수 없습니다.`);
-            }
-
-            const parameters = {};
-            const parameterMapping = mapping.parameters;
-
-            // 각 파라미터 레지스터를 개별적으로 읽기
-            for (const [key, address] of Object.entries(parameterMapping)) {
-                try {
-                    const result = await this.modbusClient.readHoldingRegisters(address, 1);
-                    parameters[key] = result.data[0];
-                } catch (error) {
-                    console.warn(`모듈 ${moduleId} ${key} 읽기 실패:`, error.message);
-                    // 기본값 설정
-                    if (key.includes('Overvoltage')) parameters[key] = 4200;
-                    else if (key.includes('Undervoltage')) parameters[key] = 3000;
-                    else if (key.includes('socLow')) parameters[key] = 20;
-                }
-            }
-
-            return parameters;
-        } catch (error) {
-            console.error(`모듈 ${moduleId} 파라미터 읽기 실패:`, error.message);
-            return {};
-        }
-    }
-
-    /**
-     * 특정 모듈의 전체 데이터 읽기
-     * @param {number} moduleId - 모듈 ID (1-3)
-     * @returns {Promise<BatteryModuleData>} 모듈 데이터
-     */
-    async readModuleData(moduleId) {
-        try {
-            // 모듈이 없으면 생성
-            let module = this.batterySystem.getModule(moduleId);
-            if (!module) {
-                module = this.batterySystem.addModule(moduleId);
-            }
-
-            // 병렬로 모든 데이터 읽기
-            const [cellVoltages, packInfo, alarms, parameters] = await Promise.all([
-                this.readCellVoltages(moduleId),
-                this.readPackInfo(moduleId),
-                this.readAlarms(moduleId),
-                this.readParameters(moduleId)
-            ]);
-
-            // 셀 전압 데이터 설정
-            module.cellVoltage.setAllCellVoltages(cellVoltages);
-
-            // 팩 정보 설정
-            Object.assign(module.packInfo, packInfo);
-
-            // 알람 상태 설정
-            Object.assign(module.alarms, alarms);
-
-            // 파라미터 설정
-            Object.assign(module.parameters, parameters);
-
-            // 타임스탬프 업데이트
-            module.updateTimestamp();
-
-            return module;
-        } catch (error) {
-            console.error(`모듈 ${moduleId} 데이터 읽기 실패:`, error.message);
-            return null;
-        }
-    }
-
-    /**
-     * 모든 모듈의 데이터 읽기 (8개 모듈)
-     * @returns {Promise<BatterySystemData>} 배터리 시스템 데이터
-     */
-    async readAllModulesData() {
-        try {
-            console.log('배터리 시스템 데이터 읽기 시작... (8개 모듈)');
-
-            // 모든 모듈 데이터를 병렬로 읽기
-            const modulePromises = [1, 2, 3, 4, 5, 6, 7, 8].map(moduleId => 
-                this.readModuleData(moduleId)
-            );
-
-            const modules = await Promise.all(modulePromises);
-
-            // 시스템 상태 업데이트
-            this.batterySystem.updateSystemStatus();
-
-            console.log(`배터리 시스템 데이터 읽기 완료. 활성 모듈: ${this.batterySystem.systemInfo.activeModules}`);
-
-            return this.batterySystem;
-        } catch (error) {
-            console.error('배터리 시스템 데이터 읽기 실패:', error.message);
-            return this.batterySystem;
-        }
-    }
-
-    /**
-     * 특정 모듈의 파라미터 쓰기
-     * @param {number} moduleId - 모듈 ID (1-8)
-     * @param {string} parameterName - 파라미터 이름
-     * @param {number} value - 설정할 값
-     * @returns {Promise<boolean>} 성공 여부
-     */
-    async writeParameter(moduleId, parameterName, value) {
-        try {
-            const mapping = this.registerMappings[`module${moduleId}`];
-            if (!mapping || !mapping.parameters[parameterName]) {
-                throw new Error(`모듈 ${moduleId}의 ${parameterName} 파라미터를 찾을 수 없습니다.`);
-            }
-
-            const address = mapping.parameters[parameterName];
+            // Modbus ID 설정
+            this.modbusClient.setID(moduleId);
+            
+            // 단일 레지스터 쓰기
             await this.modbusClient.writeRegister(address, value);
-
-            console.log(`모듈 ${moduleId} ${parameterName} = ${value} 설정 완료`);
+            
+            console.log(`모듈 ${moduleId} ${parameterKey} = ${value} 설정 완료`);
             return true;
         } catch (error) {
-            console.error(`모듈 ${moduleId} ${parameterName} 설정 실패:`, error.message);
+            console.error(`모듈 ${moduleId} ${parameterKey} 쓰기 실패:`, error.message);
             return false;
         }
     }
 
     /**
-     * 배터리 시스템 데이터 가져오기
-     * @returns {BatterySystemData} 배터리 시스템 데이터
+     * OID를 Modbus 주소로 변환
+     * @param {string} oid - SNMP OID
+     * @returns {Object} Modbus 주소 정보
      */
-    getBatterySystem() {
-        return this.batterySystem;
+    parseOID(oid) {
+        const parts = oid.split('.');
+        
+        if (parts.length < 6) {
+            throw new Error('잘못된 OID 형식입니다.');
+        }
+        
+        const moduleId = parseInt(parts[5]);
+        const dataType = parseInt(parts[6]);
+        const index = parseInt(parts[7]);
+        
+        if (moduleId < 1 || moduleId > 8) {
+            throw new Error(`지원하지 않는 모듈 ID: ${moduleId}`);
+        }
+        
+        let address;
+        let key;
+        
+        switch (dataType) {
+            case 1: // 셀 전압
+                if (index < 1 || index > 16) {
+                    throw new Error(`잘못된 셀 인덱스: ${index}`);
+                }
+                address = this.registerMappings.cellVoltages.startAddress + index - 1;
+                key = `cell${index}Voltage`;
+                break;
+                
+            case 2: // 팩 정보
+                const packInfoKeys = Object.keys(this.registerMappings.packInfo);
+                if (index < 1 || index > packInfoKeys.length) {
+                    throw new Error(`잘못된 팩 정보 인덱스: ${index}`);
+                }
+                key = packInfoKeys[index - 1];
+                address = this.registerMappings.packInfo[key];
+                break;
+                
+            case 3: // 알람
+                const alarmKeys = Object.keys(this.registerMappings.alarms);
+                if (index < 1 || index > alarmKeys.length) {
+                    throw new Error(`잘못된 알람 인덱스: ${index}`);
+                }
+                key = alarmKeys[index - 1];
+                address = this.registerMappings.alarms[key];
+                break;
+                
+            case 4: // 파라미터
+                const parameterKeys = Object.keys(this.registerMappings.parameters);
+                if (index < 1 || index > parameterKeys.length) {
+                    throw new Error(`잘못된 파라미터 인덱스: ${index}`);
+                }
+                key = parameterKeys[index - 1];
+                address = this.registerMappings.parameters[key];
+                break;
+                
+            default:
+                throw new Error(`지원하지 않는 데이터 타입: ${dataType}`);
+        }
+        
+        return {
+            moduleId,
+            dataType,
+            index,
+            address,
+            key
+        };
+    }
+
+    /**
+     * 사용 가능한 OID 목록 반환
+     * @returns {Array} OID 목록
+     */
+    getAvailableOIDs() {
+        const oids = [];
+        
+        for (let moduleId = 1; moduleId <= 8; moduleId++) {
+            const baseOid = `1.3.6.1.4.1.64016.${moduleId}`;
+            
+            // 셀 전압 OID들
+            for (let i = 1; i <= 16; i++) {
+                oids.push(`${baseOid}.1.${i}`);
+            }
+            
+            // 팩 정보 OID들
+            const packInfoKeys = Object.keys(this.registerMappings.packInfo);
+            packInfoKeys.forEach((key, index) => {
+                oids.push(`${baseOid}.2.${index + 1}`);
+            });
+            
+            // 알람 OID들
+            const alarmKeys = Object.keys(this.registerMappings.alarms);
+            alarmKeys.forEach((key, index) => {
+                oids.push(`${baseOid}.3.${index + 1}`);
+            });
+            
+            // 파라미터 OID들
+            const parameterKeys = Object.keys(this.registerMappings.parameters);
+            parameterKeys.forEach((key, index) => {
+                oids.push(`${baseOid}.4.${index + 1}`);
+            });
+        }
+        
+        return oids;
+    }
+
+    /**
+     * 주기적 데이터 읽기 시작
+     * @param {number} intervalMs - 읽기 간격 (밀리초, 기본값: 1000ms)
+     */
+    startPeriodicReading(intervalMs = 1000) {
+        if (this.isReading) {
+            console.log('이미 주기적 읽기가 실행 중입니다.');
+            return;
+        }
+
+        this.readIntervalMs = intervalMs;
+        this.isReading = true;
+        
+        console.log(`주기적 배터리 데이터 읽기 시작 (${intervalMs}ms 간격)`);
+        
+        // 즉시 한 번 실행
+        this.readAllModulesData().catch(error => {
+            console.error('초기 데이터 읽기 실패:', error.message);
+        });
+
+        // 주기적 실행
+        this.readInterval = setInterval(async () => {
+            try {
+                await this.readAllModulesData();
+            } catch (error) {
+                console.error('주기적 데이터 읽기 실패:', error.message);
+            }
+        }, this.readIntervalMs);
+    }
+
+    /**
+     * 주기적 데이터 읽기 중지
+     */
+    stopPeriodicReading() {
+        if (!this.isReading) {
+            console.log('주기적 읽기가 실행되지 않고 있습니다.');
+            return;
+        }
+
+        if (this.readInterval) {
+            clearInterval(this.readInterval);
+            this.readInterval = null;
+        }
+        
+        this.isReading = false;
+        console.log('주기적 배터리 데이터 읽기 중지');
+    }
+
+    /**
+     * 읽기 상태 확인
+     * @returns {boolean} 읽기 실행 중 여부
+     */
+    isPeriodicReadingActive() {
+        return this.isReading;
+    }
+
+    /**
+     * 읽기 간격 설정
+     * @param {number} intervalMs - 새로운 읽기 간격 (밀리초)
+     */
+    setReadInterval(intervalMs) {
+        this.readIntervalMs = intervalMs;
+        
+        if (this.isReading) {
+            // 실행 중이면 재시작
+            this.stopPeriodicReading();
+            this.startPeriodicReading(intervalMs);
+        }
+    }
+
+    /**
+     * 특정 모듈의 셀 전압만 주기적으로 읽기
+     * @param {number} moduleId - 모듈 ID (39-46)
+     * @param {number} intervalMs - 읽기 간격 (밀리초)
+     */
+    startCellVoltageReading(moduleId, intervalMs = 1000) {
+        if (this.isReading) {
+            console.log('이미 주기적 읽기가 실행 중입니다. 먼저 중지하세요.');
+            return;
+        }
+
+        this.isReading = true;
+        console.log(`모듈 ${moduleId} 셀 전압 주기적 읽기 시작 (${intervalMs}ms 간격)`);
+
+        // 즉시 한 번 실행
+        this.readPackDataAll(moduleId).then(data => {
+            console.log(`모듈 ${moduleId} 셀 전압:`, data);
+        }).catch(error => {
+            console.error(`모듈 ${moduleId} 초기 셀 전압 읽기 실패:`, error.message);
+        });
+
+        // 주기적 실행
+        this.readInterval = setInterval(async () => {
+            try {
+                const data = await this.readPackDataAll(moduleId);
+                console.log(`[${new Date().toISOString()}] 모듈 ${moduleId} 셀 전압:`, data);
+            } catch (error) {
+                console.error(`모듈 ${moduleId} 셀 전압 읽기 실패:`, error.message);
+            }
+        }, intervalMs);
     }
 }
 
-module.exports = BatteryModbusReader;
+export default BatteryModbusReader;

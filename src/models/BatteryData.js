@@ -403,7 +403,7 @@ class BatterySystemData {
     }
 }
 
-module.exports = {
+export {
     CellVoltageData,
     PackInfoData,
     AlarmData,

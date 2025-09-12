@@ -1,12 +1,15 @@
-const snmp = require('net-snmp');
-const Mib2System = require('./mib/mib2.system');
-const Mib2Interfaces = require('./mib/mib2.interfaces');
-const BatteryMib = require('./mib/battery.mib');
+import snmp from 'net-snmp';
+import Mib2System from './mib/mib2.system.js';
+import Mib2Interfaces from './mib/mib2.interfaces.js';
+import BatteryMib from './mib/battery.mib.js';
+import BatteryModbusReader from './modbus/BatteryModbusReader.js';
+import ModbusDeviceClient from './modbus/ModbusDeviceClient.js';
 
 const port = Number(process.env.SNMP_AGENT_PORT ?? 161);
 const address = process.env.SNMP_AGENT_ADDR ?? '0.0.0.0';
 const readCommunity = process.env.SNMP_READ_COMMUNITY ?? 'public';
 const writeCommunity = process.env.SNMP_WRITE_COMMUNITY ?? 'private';
+
 
 const agentOptions = {
   port,
@@ -92,6 +95,18 @@ console.log('\nTry:');
 console.log(`  System: snmpget -v2c -c ${readCommunity} 127.0.0.1:${port} 1.3.6.1.2.1.1.1.0`);
 console.log(`  Battery: snmpget -v2c -c ${readCommunity} 127.0.0.1:${port} 1.3.6.1.4.1.64016.1.1.1.1`);
 console.log(`  Write: snmpset -v2c -c ${writeCommunity} 127.0.0.1:${port} 1.3.6.1.4.1.64016.1.4.1.0 u 4250`);
+
+const modbusDeviceClient = new ModbusDeviceClient();
+modbusDeviceClient.connect().then(() => {
+    const batteryReader = new BatteryModbusReader(modbusDeviceClient);
+    
+    // BatteryMib에 Modbus Reader 설정 및 데이터 업데이트 시작
+    setTimeout(() => {
+        console.log('\n=== SNMP 배터리 데이터 업데이트 시작 ===');
+        batteryMib.setModbusReader(batteryReader);
+        batteryMib.startDataUpdate();
+    }, 2000); // 2초 후 시작
+});
 
 process.on('SIGINT', () => {
   console.log('Shutting down SNMP agent');

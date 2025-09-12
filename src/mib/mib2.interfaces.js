@@ -1,5 +1,5 @@
-const snmp = require('net-snmp');
-const os = require('os');
+import snmp from 'net-snmp';
+import os from 'os';
 
 /**
  * MIB-2 Interfaces Group (RFC1213-MIB)
@@ -144,4 +144,4 @@ class Mib2Interfaces {
   }
 }
 
-module.exports = Mib2Interfaces;
+export default Mib2Interfaces;

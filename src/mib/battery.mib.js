@@ -3,9 +3,9 @@
  * SNMP 서비스에 배터리 데이터를 등록하는 클래스
  */
 
-const snmp = require('net-snmp');
-const { BatterySystemData } = require('../models/BatteryData');
-const BatteryModbusReader = require('../modbus/BatteryModbusReader');
+import snmp from 'net-snmp';
+import { BatterySystemData } from '../models/BatteryData.js';
+import BatteryModbusReader from '../modbus/BatteryModbusReader.js';
 
 class BatteryMib {
     constructor(agent, mib) {
@@ -191,7 +191,7 @@ class BatteryMib {
     startDataUpdate() {
         // 실제 환경에서는 Modbus를 통해 데이터를 읽어옴
         // 여기서는 시뮬레이션 데이터로 업데이트
-        this.updateSimulatedData();
+        //this.updateSimulatedData();
         
         // 5초마다 데이터 업데이트
         setInterval(() => {
@@ -398,4 +398,4 @@ class BatteryMib {
     }
 }
 
-module.exports = BatteryMib;
+export default BatteryMib;
