@@ -195,7 +195,8 @@ class BatteryMib {
         
         // 5초마다 데이터 업데이트
         setInterval(() => {
-            this.updateSimulatedData();
+            //this.updateSimulatedData();
+            this.updateFromModbus();
         }, 5000);
     }
 
@@ -203,6 +204,7 @@ class BatteryMib {
      * 시뮬레이션 데이터 업데이트
      */
     updateSimulatedData() {
+        console.log("updateSimulatedData");
         for (let moduleId = 1; moduleId <= 8; moduleId++) {
             const module = this.batterySystem.getModule(moduleId);
             if (!module) continue;
@@ -322,13 +324,25 @@ class BatteryMib {
      * 실제 Modbus 데이터로 업데이트
      */
     async updateFromModbus() {
-        if (this.modbusReader) {
-            try {
-                await this.modbusReader.readAllModulesData();
-                console.log('[Battery MIB] Updated from Modbus');
-            } catch (error) {
-                console.error('[Battery MIB] Modbus update failed:', error.message);
+        if (!this.modbusReader) {
+            console.log('[Battery MIB] Modbus reader not set');
+            return;
+        }
+
+        try {
+            console.log('[Battery MIB] Reading Modbus data...');
+            const moduleData = await this.modbusReader.readAllModulesData();
+            
+            // 각 모듈의 데이터를 SNMP OID에 매핑
+            for (const [moduleKey, data] of Object.entries(moduleData)) {
+                const moduleId = parseInt(moduleKey.replace('module', ''));
+                console.log(`[Battery MIB] Updating SNMP values for module ${moduleId}`);
+                this.updateModuleSnmpValues(moduleId, data);
             }
+            
+            console.log('[Battery MIB] SNMP values updated from Modbus');
+        } catch (error) {
+            console.error('[Battery MIB] Modbus update failed:', error.message);
         }
     }
 
@@ -388,6 +402,93 @@ class BatteryMib {
             });
         }
         return oids;
+    }
+
+    /**
+     * Modbus 데이터를 SNMP OID에 매핑
+     * @param {number} moduleId - 모듈 ID (1-8)
+     * @param {Object} moduleData - Modbus에서 읽은 모듈 데이터
+     */
+    updateModuleSnmpValues(moduleId, moduleData) {
+        try {
+            console.log(`[Battery MIB] Updating module ${moduleId} SNMP values`);
+            
+            // 셀 전압 업데이트
+            if (moduleData.cellVoltages && Array.isArray(moduleData.cellVoltages)) {
+                for (let cellIndex = 1; cellIndex <= 16; cellIndex++) {
+                    const providerName = `mod${moduleId}Cell${cellIndex}Voltage`;
+                    const value = moduleData.cellVoltages[cellIndex - 1] || 0;
+                    this.mib.setScalarValue(providerName, value);
+                }
+            } else {
+                console.warn(`[Battery MIB] 모듈 ${moduleId} 셀 전압 데이터가 배열이 아닙니다`);
+            }
+
+            // 팩 정보 업데이트
+            if (moduleData.packInfo) {
+                const packInfo = moduleData.packInfo;
+                
+                // 팩 전압 (0.01V 단위)
+                this.mib.setScalarValue(`mod${moduleId}PackcellMaxVoltage`, packInfo.packVoltage || 0);
+                
+                // 전류 (0.1A 단위)
+                this.mib.setScalarValue(`mod${moduleId}PackcellMinVoltage`, packInfo.CurrentValue || 0);
+                
+                // SOC (%)
+                this.mib.setScalarValue(`mod${moduleId}PackcellAvgVoltage`, packInfo.SOC || 0);
+                
+                // 평균 온도 (0.1°C 단위)
+                this.mib.setScalarValue(`mod${moduleId}PackavgTemp`, packInfo.AverageCellTemp || 0);
+                
+                // 주변 온도 (0.1°C 단위)
+                this.mib.setScalarValue(`mod${moduleId}PackambTemp`, packInfo.AmbientTemp || 0);
+                
+                // SOH (%)
+                this.mib.setScalarValue(`mod${moduleId}Packsoh`, packInfo.SOH || 0);
+                
+                // PCB 온도 (0.1°C 단위)
+                this.mib.setScalarValue(`mod${moduleId}PackpcbTemp`, packInfo.PCBTemp || 0);
+                
+                // 순환 횟수
+                this.mib.setScalarValue(`mod${moduleId}PackcirculateNumber`, packInfo.CirculateNumber || 0);
+                
+                // 설치된 셀 수
+                this.mib.setScalarValue(`mod${moduleId}PackinstalledCellNumber`, packInfo.InstalledCellNumber || 0);
+                
+                // 온도 센서 수
+                this.mib.setScalarValue(`mod${moduleId}PacktemperatureSensorNumber`, packInfo.TemperatureSensorNumber || 0);
+                
+                // 전체 용량
+                this.mib.setScalarValue(`mod${moduleId}PackfullCapacity`, packInfo.FullCapacity || 0);
+                
+                // 잔여 충전 시간
+                this.mib.setScalarValue(`mod${moduleId}PackremainChargeTime`, packInfo.RemainChargeTime || 0);
+                
+                // 잔여 방전 시간
+                this.mib.setScalarValue(`mod${moduleId}PackremainDischargeTime`, packInfo.RemainDischargeTime || 0);
+                
+                // 실행 상태
+                this.mib.setScalarValue(`mod${moduleId}PackrunningState`, packInfo.FaultStatus || 0);
+            }
+
+            // 알람 상태 업데이트
+            if (moduleData.alarms) {
+                const alarms = moduleData.alarms;
+                
+                // 경고 플래그
+                this.mib.setScalarValue(`mod${moduleId}AlarmcellOvervoltageAlarms`, alarms.warningFlag || 0);
+                
+                // 보호 플래그
+                this.mib.setScalarValue(`mod${moduleId}AlarmcellUndervoltageAlarms`, alarms.protectionFlag || 0);
+                
+                // 결함 상태
+                this.mib.setScalarValue(`mod${moduleId}AlarmpackOvervoltageAlarm`, alarms.faultStatus || 0);
+            }
+
+            console.log(`[Battery MIB] 모듈 ${moduleId} SNMP 값 업데이트 완료`);
+        } catch (error) {
+            console.error(`[Battery MIB] 모듈 ${moduleId} SNMP 값 업데이트 실패:`, error.message);
+        }
     }
 
     /**
