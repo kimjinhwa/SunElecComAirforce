@@ -2738,7 +2738,7 @@ mod8-total-voltage OBJECT-TYPE
     DESCRIPTION     "Module 8 Total battery pack voltage (0-7000 V, display as V/100)"
     ::= { module8PackInfo 6 }
 
-mod8-pack-voltage OBJECT-TYPE
+mod9-pack-voltage OBJECT-TYPE
     SYNTAX          Unsigned32
     UNITS           "V"
     MAX-ACCESS      read-only

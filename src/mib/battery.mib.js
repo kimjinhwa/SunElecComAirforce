@@ -82,13 +82,20 @@ class BatteryMib {
 
         packInfoOids.forEach(({ index, name, key }) => {
             const oid = `${baseOid}.2.${index}`;
-            const providerName = `mod${moduleId}Pack${name}`;
+            const providerName = `mod${moduleId}${name.charAt(0).toUpperCase() + name.slice(1)}`;
+            
+            // 온도 및 전류 관련 OID는 Integer32, 나머지는 Unsigned32
+            const isTemperature = name === 'avgTemp' || name === 'ambTemp';
+            const isCurrent = name === 'chargeCurrent' || name === 'dischargeCurrent';
+            const scalarType = (isTemperature || isCurrent) ? snmp.ObjectType.Integer32 : snmp.ObjectType.Unsigned32;
+            
+            console.log(`[Battery MIB] Registering Provider: ${providerName} with OID: ${oid} (${(isTemperature || isCurrent) ? 'Integer32' : 'Unsigned32'})`);
             
             this.agent.registerProvider({
                 name: providerName,
                 type: snmp.MibProviderType.Scalar,
                 oid: oid,
-                scalarType: snmp.ObjectType.Unsigned32,
+                scalarType: scalarType,
                 maxAccess: snmp.MaxAccess['read-only']
             });
             
@@ -140,7 +147,7 @@ class BatteryMib {
                 name: providerName,
                 type: snmp.MibProviderType.Scalar,
                 oid: oid,
-                scalarType: snmp.ObjectType.Unsigned32,
+                scalarType: snmp.ObjectType.Integer32,
                 maxAccess: snmp.MaxAccess['read-write']
             });
             
@@ -192,9 +199,11 @@ class BatteryMib {
         // 실제 환경에서는 Modbus를 통해 데이터를 읽어옴
         // 여기서는 시뮬레이션 데이터로 업데이트
         //this.updateSimulatedData();
+         this.updateFromModbus();
         
         // 5초마다 데이터 업데이트
         setInterval(() => {
+            console.log("startDataUpdate at every 5 seconds");
             //this.updateSimulatedData();
             this.updateFromModbus();
         }, 5000);
@@ -203,61 +212,61 @@ class BatteryMib {
     /**
      * 시뮬레이션 데이터 업데이트
      */
-    updateSimulatedData() {
-        console.log("updateSimulatedData");
-        for (let moduleId = 1; moduleId <= 8; moduleId++) {
-            const module = this.batterySystem.getModule(moduleId);
-            if (!module) continue;
+    // updateSimulatedData() {
+    //     console.log("updateSimulatedData");
+    //     for (let moduleId = 1; moduleId <= 8; moduleId++) {
+    //         const module = this.batterySystem.getModule(moduleId);
+    //         if (!module) continue;
 
-            // 셀 전압 시뮬레이션 (3800mV ± 50mV)
-            const baseVoltage = 3800 + (moduleId - 1) * 10; // 모듈별로 약간씩 다름
-            const cellVoltages = [];
-            for (let i = 0; i < 16; i++) {
-                const variation = (Math.random() - 0.5) * 100; // ±50mV 변동
-                cellVoltages.push(Math.max(0, baseVoltage + variation));
-            }
-            module.cellVoltage.setAllCellVoltages(cellVoltages);
+    //         // 셀 전압 시뮬레이션 (3800mV ± 50mV)
+    //         const baseVoltage = 3800 + (moduleId - 1) * 10; // 모듈별로 약간씩 다름
+    //         const cellVoltages = [];
+    //         for (let i = 0; i < 16; i++) {
+    //             const variation = (Math.random() - 0.5) * 100; // ±50mV 변동
+    //             cellVoltages.push(Math.max(0, baseVoltage + variation));
+    //         }
+    //         module.cellVoltage.setAllCellVoltages(cellVoltages);
 
-            // 팩 정보 시뮬레이션
-            module.packInfo.avgTemp = 20 + Math.random() * 20; // 20-40°C
-            module.packInfo.ambTemp = module.packInfo.avgTemp - 2;
-            module.packInfo.totalVoltage = module.cellVoltage.avgVoltage * 16;
-            module.packInfo.packVoltage = module.packInfo.totalVoltage;
-            module.packInfo.chargeCurrent = Math.random() > 0.7 ? Math.floor(Math.random() * 2000) : 0;
-            module.packInfo.dischargeCurrent = Math.random() > 0.3 ? Math.floor(Math.random() * 1500) : 0;
-            module.packInfo.soc = Math.floor(20 + Math.random() * 60); // 20-80%
-            module.packInfo.soh = Math.floor(80 + Math.random() * 20); // 80-100%
-            module.packInfo.ratedCapacity = 10000;
-            module.packInfo.remainingCapacity = Math.floor(module.packInfo.ratedCapacity * module.packInfo.soc / 100);
-            module.packInfo.runningState = module.packInfo.chargeCurrent > 0 ? 1 : 
-                                          module.packInfo.dischargeCurrent > 0 ? 2 : 3;
+    //         // 팩 정보 시뮬레이션
+    //         module.packInfo.avgTemp = 20 + Math.random() * 20; // 20-40°C
+    //         module.packInfo.ambTemp = module.packInfo.avgTemp - 2;
+    //         module.packInfo.totalVoltage = module.cellVoltage.avgVoltage * 16;
+    //         module.packInfo.packVoltage = module.packInfo.totalVoltage;
+    //         module.packInfo.chargeCurrent = Math.random() > 0.7 ? Math.floor(Math.random() * 2000) : 0;
+    //         module.packInfo.dischargeCurrent = Math.random() > 0.3 ? Math.floor(Math.random() * 1500) : 0;
+    //         module.packInfo.soc = Math.floor(20 + Math.random() * 60); // 20-80%
+    //         module.packInfo.soh = Math.floor(80 + Math.random() * 20); // 80-100%
+    //         module.packInfo.ratedCapacity = 10000;
+    //         module.packInfo.remainingCapacity = Math.floor(module.packInfo.ratedCapacity * module.packInfo.soc / 100);
+    //         module.packInfo.runningState = module.packInfo.chargeCurrent > 0 ? 1 : 
+    //                                       module.packInfo.dischargeCurrent > 0 ? 2 : 3;
 
-            // 알람 상태 시뮬레이션
-            module.alarms.cellOvervoltageAlarms = 0;
-            module.alarms.cellUndervoltageAlarms = 0;
-            module.alarms.packOvervoltageAlarm = 0;
-            module.alarms.packUndervoltageAlarm = 0;
-            module.alarms.chargeOvercurrentAlarm = 0;
-            module.alarms.dischargeOvercurrentAlarm = 0;
-            module.alarms.socLowAlarm = module.packInfo.soc < 20 ? 1 : 0;
+    //         // 알람 상태 시뮬레이션
+    //         module.alarms.cellOvervoltageAlarms = 0;
+    //         module.alarms.cellUndervoltageAlarms = 0;
+    //         module.alarms.packOvervoltageAlarm = 0;
+    //         module.alarms.packUndervoltageAlarm = 0;
+    //         module.alarms.chargeOvercurrentAlarm = 0;
+    //         module.alarms.dischargeOvercurrentAlarm = 0;
+    //         module.alarms.socLowAlarm = module.packInfo.soc < 20 ? 1 : 0;
 
-            // 파라미터 기본값 설정
-            if (module.parameters.cellOvervoltageAlarmValue === 0) {
-                module.parameters.cellOvervoltageAlarmValue = 4200;
-                module.parameters.cellOvervoltageAlarmRecovery = 4100;
-                module.parameters.cellUndervoltageAlarmValue = 3000;
-                module.parameters.cellUndervoltageAlarmRecovery = 3100;
-                module.parameters.socLowAlarmValue = 20;
-            }
+    //         // 파라미터 기본값 설정
+    //         if (module.parameters.cellOvervoltageAlarmValue === 0) {
+    //             module.parameters.cellOvervoltageAlarmValue = 4200;
+    //             module.parameters.cellOvervoltageAlarmRecovery = 4100;
+    //             module.parameters.cellUndervoltageAlarmValue = 3000;
+    //             module.parameters.cellUndervoltageAlarmRecovery = 3100;
+    //             module.parameters.socLowAlarmValue = 20;
+    //         }
 
-            module.updateTimestamp();
+    //         module.updateTimestamp();
             
-            // SNMP 값 업데이트
-            this.updateSnmpValues(moduleId, module);
-        }
+    //         // SNMP 값 업데이트
+    //         this.updateSnmpValues(moduleId, module);
+    //     }
 
-        this.batterySystem.updateSystemStatus();
-    }
+    //     this.batterySystem.updateSystemStatus();
+    // }
 
     /**
      * SNMP 값들을 업데이트
@@ -332,12 +341,16 @@ class BatteryMib {
         try {
             console.log('[Battery MIB] Reading Modbus data...');
             const moduleData = await this.modbusReader.readAllModulesData();
+            //nsole.log("moduleData", moduleData);
             
             // 각 모듈의 데이터를 SNMP OID에 매핑
             for (const [moduleKey, data] of Object.entries(moduleData)) {
-                const moduleId = parseInt(moduleKey.replace('module', ''));
-                console.log(`[Battery MIB] Updating SNMP values for module ${moduleId}`);
-                this.updateModuleSnmpValues(moduleId, data);
+              //console.log("data",data);
+                const modbusModuleId = parseInt(moduleKey.replace('module', ''));
+                // Modbus ID 39-46을 SNMP 모듈 ID 1-8로 변환 
+                const snmpModuleId = modbusModuleId ; // 39 -> 1, 40 -> 2, ...
+                console.log(`[Battery MIB] Updating SNMP values for Modbus module ${modbusModuleId} -> SNMP module ${snmpModuleId}`);
+                this.updateModuleSnmpValues(snmpModuleId, data);
             }
             
             console.log('[Battery MIB] SNMP values updated from Modbus');
@@ -410,14 +423,17 @@ class BatteryMib {
      * @param {Object} moduleData - Modbus에서 읽은 모듈 데이터
      */
     updateModuleSnmpValues(moduleId, moduleData) {
+        console.log("updateModuleSnmpValues------------------------------>", moduleId, moduleData);
         try {
             console.log(`[Battery MIB] Updating module ${moduleId} SNMP values`);
             
             // 셀 전압 업데이트
+            console.log("moduleData.cellVoltages", moduleData.cellVoltages);
             if (moduleData.cellVoltages && Array.isArray(moduleData.cellVoltages)) {
                 for (let cellIndex = 1; cellIndex <= 16; cellIndex++) {
                     const providerName = `mod${moduleId}Cell${cellIndex}Voltage`;
                     const value = moduleData.cellVoltages[cellIndex - 1] || 0;
+                    console.log("providerName", providerName, value);
                     this.mib.setScalarValue(providerName, value);
                 }
             } else {
@@ -428,47 +444,75 @@ class BatteryMib {
             if (moduleData.packInfo) {
                 const packInfo = moduleData.packInfo;
                 
-                // 팩 전압 (0.01V 단위)
-                this.mib.setScalarValue(`mod${moduleId}PackcellMaxVoltage`, packInfo.packVoltage || 0);
+                // 최대 셀 전압 (mV 단위) - 처음 15개만 사용
+                const maxVoltage = moduleData.cellVoltages && moduleData.cellVoltages.length > 0 
+                    ? Math.max(...moduleData.cellVoltages.slice(0, 15)) 
+                    : 0;
+                this.mib.setScalarValue(`mod${moduleId}CellMaxVoltage`, maxVoltage);
                 
-                // 전류 (0.1A 단위)
-                this.mib.setScalarValue(`mod${moduleId}PackcellMinVoltage`, packInfo.CurrentValue || 0);
+                // 최소 셀 전압 (mV 단위) - 처음 15개만 사용
+                const minVoltage = moduleData.cellVoltages && moduleData.cellVoltages.length > 0 
+                    ? Math.min(...moduleData.cellVoltages.slice(0, 15)) 
+                    : 0;
+                this.mib.setScalarValue(`mod${moduleId}CellMinVoltage`, minVoltage);
                 
-                // SOC (%)
-                this.mib.setScalarValue(`mod${moduleId}PackcellAvgVoltage`, packInfo.SOC || 0);
+                // avg voltage 
+                const aveVoltage = moduleData.cellVoltages && moduleData.cellVoltages.length > 0 
+                    ? Math.round(moduleData.cellVoltages.slice(0, 15).reduce((sum, voltage) => sum + voltage, 0) / 15)
+                    : 0;
+                this.mib.setScalarValue(`mod${moduleId}CellAvgVoltage`, aveVoltage);
+                // avg temperature (0.1°C 단위: 25.0°C = 250)
+                let avgTemperature = moduleData.packInfo.AverageCellTemp ? moduleData.packInfo.AverageCellTemp - 400 : 0;
+                this.mib.setScalarValue(`mod${moduleId}AvgTemp`, avgTemperature);
                 
-                // 평균 온도 (0.1°C 단위)
-                this.mib.setScalarValue(`mod${moduleId}PackavgTemp`, packInfo.AverageCellTemp || 0);
+                // amb temperature (0.1°C 단위: 25.0°C = 250)
+                let ambTemperature = moduleData.packInfo.AmbientTemp ? moduleData.packInfo.AmbientTemp - 400 : 0;
+                this.mib.setScalarValue(`mod${moduleId}AmbTemp`, ambTemperature);
+                // total voltage
+                const totalVoltage = moduleData.packInfo && moduleData.packInfo.cellVoltages && moduleData.packInfo.cellVoltages.length > 0
+                    ? moduleData.packInfo.cellVoltages.slice(0, 15).reduce((sum, voltage) => sum + voltage, 0)
+                    : 0;
+                this.mib.setScalarValue(`mod${moduleId}TotalVoltage`, totalVoltage);
+                // pack voltage
+                this.mib.setScalarValue(`mod${moduleId}PackVoltage`, moduleData.packInfo ? moduleData.packInfo.packVoltage || 0 : 0);
                 
-                // 주변 온도 (0.1°C 단위)
-                this.mib.setScalarValue(`mod${moduleId}PackambTemp`, packInfo.AmbientTemp || 0);
+                // Charge Current (0.01A 단위, -10000 오프셋)
+                let chargeCurrent = moduleData.packInfo && moduleData.packInfo.CurrentValue ? moduleData.packInfo.CurrentValue - 10000 : 0;
+                this.mib.setScalarValue(`mod${moduleId}ChargeCurrent`, chargeCurrent);
+                // Discharge Current (0.01A 단위, -10000 오프셋)
+                let dischargeCurrent = moduleData.packInfo && moduleData.packInfo.CurrentValue ? moduleData.packInfo.CurrentValue - 10000 : 0;
+                this.mib.setScalarValue(`mod${moduleId}DischargeCurrent`, dischargeCurrent);
+                // SOC
+                this.mib.setScalarValue(`mod${moduleId}Soc`, moduleData.packInfo ? moduleData.packInfo.SOC || 0 : 0);
+                // SOH
+                // this.mib.setScalarValue(`mod${moduleId}PackambTemp`, packInfo.AmbientTemp || 0);
                 
-                // SOH (%)
-                this.mib.setScalarValue(`mod${moduleId}Packsoh`, packInfo.SOH || 0);
+                // // SOH (%)
+                // this.mib.setScalarValue(`mod${moduleId}Packsoh`, packInfo.SOH || 0);
                 
-                // PCB 온도 (0.1°C 단위)
-                this.mib.setScalarValue(`mod${moduleId}PackpcbTemp`, packInfo.PCBTemp || 0);
+                // // PCB 온도 (0.1°C 단위)
+                // this.mib.setScalarValue(`mod${moduleId}PackpcbTemp`, packInfo.PCBTemp || 0);
                 
-                // 순환 횟수
-                this.mib.setScalarValue(`mod${moduleId}PackcirculateNumber`, packInfo.CirculateNumber || 0);
+                // // 순환 횟수
+                // this.mib.setScalarValue(`mod${moduleId}PackcirculateNumber`, packInfo.CirculateNumber || 0);
                 
-                // 설치된 셀 수
-                this.mib.setScalarValue(`mod${moduleId}PackinstalledCellNumber`, packInfo.InstalledCellNumber || 0);
+                // // 설치된 셀 수
+                // this.mib.setScalarValue(`mod${moduleId}PackinstalledCellNumber`, packInfo.InstalledCellNumber || 0);
                 
-                // 온도 센서 수
-                this.mib.setScalarValue(`mod${moduleId}PacktemperatureSensorNumber`, packInfo.TemperatureSensorNumber || 0);
+                // // 온도 센서 수
+                // this.mib.setScalarValue(`mod${moduleId}PacktemperatureSensorNumber`, packInfo.TemperatureSensorNumber || 0);
                 
-                // 전체 용량
-                this.mib.setScalarValue(`mod${moduleId}PackfullCapacity`, packInfo.FullCapacity || 0);
+                // // 전체 용량
+                // this.mib.setScalarValue(`mod${moduleId}PackfullCapacity`, packInfo.FullCapacity || 0);
                 
-                // 잔여 충전 시간
-                this.mib.setScalarValue(`mod${moduleId}PackremainChargeTime`, packInfo.RemainChargeTime || 0);
+                // // 잔여 충전 시간
+                // this.mib.setScalarValue(`mod${moduleId}PackremainChargeTime`, packInfo.RemainChargeTime || 0);
                 
-                // 잔여 방전 시간
-                this.mib.setScalarValue(`mod${moduleId}PackremainDischargeTime`, packInfo.RemainDischargeTime || 0);
+                // // 잔여 방전 시간
+                // this.mib.setScalarValue(`mod${moduleId}PackremainDischargeTime`, packInfo.RemainDischargeTime || 0);
                 
-                // 실행 상태
-                this.mib.setScalarValue(`mod${moduleId}PackrunningState`, packInfo.FaultStatus || 0);
+                // // 실행 상태
+                // this.mib.setScalarValue(`mod${moduleId}PackrunningState`, packInfo.FaultStatus || 0);
             }
 
             // 알람 상태 업데이트

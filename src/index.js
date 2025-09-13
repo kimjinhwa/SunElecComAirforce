@@ -98,14 +98,17 @@ console.log(`  Write: snmpset -v2c -c ${writeCommunity} 127.0.0.1:${port} 1.3.6.
 
 const modbusDeviceClient = new ModbusDeviceClient();
 modbusDeviceClient.connect().then(() => {
-    const batteryReader = new BatteryModbusReader(modbusDeviceClient);
+    console.log('Modbus 연결 완료');
+    modbusDeviceClient.setID(39);
     
-    // BatteryMib에 Modbus Reader 설정 및 데이터 업데이트 시작
+    // BatteryMib에 ModbusReader 설정 및 데이터 업데이트 시작
+    batteryMib.setModbusReader(modbusDeviceClient);
+    
+    // 2초 후 주기적 데이터 업데이트 시작
     setTimeout(() => {
-        console.log('\n=== SNMP 배터리 데이터 업데이트 시작 ===');
-        batteryMib.setModbusReader(batteryReader);
+        console.log('\n=== 주기적 배터리 데이터 읽기 및 SNMP 업데이트 시작 ===');
         batteryMib.startDataUpdate();
-    }, 2000); // 2초 후 시작
+    }, 2000);
 });
 
 process.on('SIGINT', () => {

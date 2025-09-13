@@ -203,7 +203,7 @@ class BatteryModbusReader {
         const promises = [];
         
         // 모듈 39-46에 대한 데이터 읽기 Promise 생성
-        for (let moduleId = startModuleId; moduleId <= startModuleId + installedModuleCount; moduleId++) {
+        for (let moduleId = startModuleId; moduleId < startModuleId + installedModuleCount; moduleId++) {
             promises.push(this.readModuleData(moduleId));
         }
         
@@ -213,10 +213,11 @@ class BatteryModbusReader {
             
             // 결과를 모듈별로 정리
             results.forEach((data, index) => {
-                const moduleId = index + startModuleId; // 39부터 시작
+                const moduleId = index + startModuleId -38; // 39부터 시작
                 moduleData[`module${moduleId}`] = data;
             });
-            
+            //console.log("moduleData--------------------------------", moduleData);
+
             return moduleData;
         } catch (error) {
             console.error('모든 모듈 데이터 읽기 실패:', error.message);
@@ -237,9 +238,34 @@ class BatteryModbusReader {
             const packData = await this.readPackDataAll(moduleId);
 
             return {
-                cellVoltages: packData, // readPackDataAll에서 반환된 데이터를 cellVoltages로 사용
-                packInfo: {}, // 추후 구현
-                alarms: {}, // 추후 구현
+                cellVoltages: packData.cellVoltages || [], // 셀 전압 배열
+                packInfo: {
+                    packVoltage: packData.packVoltage,
+                    CurrentValue: packData.CurrentValue,
+                    remainingCapacity: packData.remainingCapacity,
+                    AverageCellTemp: packData.AverageCellTemp,
+                    AmbientTemp: packData.AmbientTemp,
+                    WarningFlag: packData.WarningFlag,
+                    ProtectionFlag: packData.ProtectionFlag,
+                    FaultStatus: packData.FaultStatus,
+                    SOC: packData.SOC,
+                    CirculateNumber: packData.CirculateNumber,
+                    SOH: packData.SOH,
+                    PCBTemp: packData.PCBTemp,
+                    HistoryDischargeCapacity: packData.HistoryDischargeCapacity,
+                    InstalledCellNumber: packData.InstalledCellNumber,
+                    TemperatureSensorNumber: packData.TemperatureSensorNumber,
+                    cellTemperatures: packData.cellTemperatures || [],
+                    FullCapacity: packData.FullCapacity,
+                    RemainChargeTime: packData.RemainChargeTime,
+                    RemainDischargeTime: packData.RemainDischargeTime,
+                    CellUVState: packData.CellUVState
+                },
+                alarms: {
+                    warningFlag: packData.WarningFlag,
+                    protectionFlag: packData.ProtectionFlag,
+                    faultStatus: packData.FaultStatus
+                },
                 parameters: {}, // 추후 구현
                 timestamp: new Date().toISOString()
             };
@@ -250,34 +276,53 @@ class BatteryModbusReader {
     }
 
     /**
-     * 특정 모듈의 셀 전압 읽기
+     * 특정 모듈의 PackInfo 데이터 읽기 (51개 레지스터)
      * @param {number} moduleId - 모듈 ID (39-46)
-     * @returns {Promise<Array>} 셀 전압 배열
+     * @returns {Promise<Object>} 파싱된 PackInfo 데이터
      */
     async readPackDataAll(moduleId) {
         // 시뮬레이션 모드인 경우 가짜 데이터 반환
         if (this.simulationMode) {
-            return this.generateSimulatedCellVoltages(moduleId);
+            return this.generateSimulatedPackInfo(moduleId);
         }
 
         try {
             const mapping = this.registerMappings.packInfo;
-            //const mapping = this.registerMappings.packInfo;
-            console.log("mapping.startAddress",mapping.startAddress, "mapping.count", mapping.count);
+            console.log(`[Modbus] 모듈 ${moduleId} PackInfo 읽기 시작 - 주소: ${mapping.startAddress}, 개수: ${mapping.count}`);
+            
             const result = await this.modbusClient.readInputRegister(
                 moduleId,
                 mapping.startAddress, 
                 mapping.count
             );
-            console.log("result.data", result.data);
             
-            return result.data.map(voltage => Math.round(voltage * 0.1)); // mV 단위로 변환
+            console.log(`[Modbus] 모듈 ${moduleId} PackInfo 읽기 완료 - 데이터 개수: ${result.data.length}`);
+            
+            // 51개 레지스터 데이터를 파싱
+            return this.parsePackInfoData(result.data);
         } catch (error) {
-            console.error(`모듈 ${moduleId} 셀 전압 읽기 실패:`, error.message);
-            return new Array(16).fill(0);
+            console.error(`모듈 ${moduleId} PackInfo 읽기 실패:`, error.message);
+            // 실패 시 기본값 반환
+            return this.generateResetPackInfo(moduleId);
         }
     }
 
+    /**
+     * 실패시 Reset 셀 전압 데이터 생성
+     * @param {number} moduleId - 모듈 ID
+     * @returns {Array} 실패시 Reset 셀 전압 배열
+     */
+    generateResetCellVoltages(moduleId) {
+        const baseVoltage = 0; // 0V + 모듈별 변동
+        const voltages = [];
+        
+        for (let i = 0; i < 16; i++) {
+            const voltage = 0;
+            voltages.push(voltage);
+        }
+        
+        return voltages;
+    }
     /**
      * 시뮬레이션 모드용 셀 전압 데이터 생성
      * @param {number} moduleId - 모듈 ID
@@ -295,6 +340,109 @@ class BatteryModbusReader {
         }
         
         return voltages;
+    }
+
+    /**
+     * 실패시 Reset PackInfo 데이터 생성
+     * @param {number} moduleId - 모듈 ID
+     * @returns {Object} 실패시 Reset PackInfo 데이터
+     */
+    generateResetPackInfo(moduleId) {
+        const baseVoltage = 0; // 0V + 모듈별 변동
+        const baseCurrent = 0; // 0A + 모듈별 변동
+        
+        return {
+            packVoltage: 0, // 0.01V 단위
+            CurrentValue: 0, // 0.1A 단위
+            remainingCapacity: 0, // 80-99%
+            AverageCellTemp: 0, // 25.0°C + 변동
+            AmbientTemp: 0, // 20.0°C + 변동
+            WarningFlag: 0,
+            ProtectionFlag: 0,
+            FaultStatus: 0,
+            SOC: 0, // 85-99%
+            CirculateNumber: 0,
+            SOH: 0, // 95-99%
+            PCBTemp: 0, // 30.0°C + 변동
+            HistoryDischargeCapacity: 0,
+            InstalledCellNumber: 0,
+            cellVoltages: this.generateResetCellVoltages(moduleId),
+            TemperatureSensorNumber: 0,
+            cellTemperatures: 0,
+            FullCapacity: 0,
+            RemainChargeTime: 0,
+            RemainDischargeTime: 0,
+            CellUVState: 0
+        };
+    }
+    /**
+     * 시뮬레이션 모드용 PackInfo 데이터 생성
+     * @param {number} moduleId - 모듈 ID
+     * @returns {Object} 시뮬레이션 PackInfo 데이터
+     */
+    generateSimulatedPackInfo(moduleId) {
+        const baseVoltage = 48000 + (moduleId * 100); // 48V + 모듈별 변동
+        const baseCurrent = 1000 + (moduleId * 50); // 1A + 모듈별 변동
+        
+        return {
+            packVoltage: Math.round(baseVoltage * 0.1), // 0.01V 단위
+            CurrentValue: Math.round(baseCurrent * 0.1), // 0.1A 단위
+            remainingCapacity: 80 + (moduleId % 20), // 80-99%
+            AverageCellTemp: 250 + (moduleId * 5), // 25.0°C + 변동
+            AmbientTemp: 200 + (moduleId * 3), // 20.0°C + 변동
+            WarningFlag: 0,
+            ProtectionFlag: 0,
+            FaultStatus: 0,
+            SOC: 85 + (moduleId % 15), // 85-99%
+            CirculateNumber: moduleId * 100,
+            SOH: 95 + (moduleId % 5), // 95-99%
+            PCBTemp: 300 + (moduleId * 2), // 30.0°C + 변동
+            HistoryDischargeCapacity: moduleId * 1000,
+            InstalledCellNumber: 16,
+            cellVoltages: this.generateSimulatedCellVoltages(moduleId),
+            TemperatureSensorNumber: 4,
+            cellTemperatures: [250, 255, 245, 260].map(temp => temp + (moduleId * 2)),
+            FullCapacity: 10000 + (moduleId * 100),
+            RemainChargeTime: 120 + (moduleId * 10),
+            RemainDischargeTime: 300 + (moduleId * 20),
+            CellUVState: 0
+        };
+    }
+
+    /**
+     * 51개 레지스터 데이터를 PackInfo 객체로 파싱
+     * @param {Array} data - 51개 레지스터 데이터
+     * @returns {Object} 파싱된 PackInfo 데이터
+     */
+    parsePackInfoData(data) {
+        if (!data || data.length < 51) {
+            console.warn('[Modbus] PackInfo 데이터가 부족합니다. 시뮬레이션 데이터를 사용합니다.');
+            return this.generateSimulatedPackInfo(39); // 기본 모듈 ID
+        }
+
+        return {
+            packVoltage: data[0] , // 0.01V 단위
+            CurrentValue: data[1] , // 0.1A 단위
+            remainingCapacity: data[2],
+            AverageCellTemp: data[3],
+            AmbientTemp: data[4],
+            WarningFlag: data[5],
+            ProtectionFlag: data[6],
+            FaultStatus: data[7],
+            SOC: data[8],
+            CirculateNumber: data[9],
+            SOH: data[10],
+            PCBTemp: data[11],
+            HistoryDischargeCapacity: data[12],
+            InstalledCellNumber: data[13],
+            cellVoltages: data.slice(14, 30),//.map(voltage => Math.round(voltage * 0.1)), // 셀 전압 16개
+            TemperatureSensorNumber: data[30],
+            cellTemperatures: data.slice(31, 47), // 온도 센서 16개
+            FullCapacity: data[47],
+            RemainChargeTime: data[48],
+            RemainDischargeTime: data[49],
+            CellUVState: data[50]
+        };
     }
 
 
@@ -526,6 +674,7 @@ class BatteryModbusReader {
             try {
                 const data = await this.readPackDataAll(moduleId);
                 console.log(`[${new Date().toISOString()}] 모듈 ${moduleId} 셀 전압:`, data);
+
             } catch (error) {
                 console.error(`모듈 ${moduleId} 셀 전압 읽기 실패:`, error.message);
             }
