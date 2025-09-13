@@ -23,10 +23,7 @@ bmsModule1 OBJECT IDENTIFIER ::= { batModule 1 }
 bmsModule2 OBJECT IDENTIFIER ::= { batModule 2 }
 bmsModule3 OBJECT IDENTIFIER ::= { batModule 3 }
 bmsModule4 OBJECT IDENTIFIER ::= { batModule 4 }
-bmsModule5 OBJECT IDENTIFIER ::= { batModule 5 }
-bmsModule6 OBJECT IDENTIFIER ::= { batModule 6 }
-bmsModule7 OBJECT IDENTIFIER ::= { batModule 7 }
-bmsModule8 OBJECT IDENTIFIER ::= { batModule 8 }
+-- bmsModule5-8 are defined in their respective sections below
 
 -- Common structure for each module
 -- Module 1 Objects
@@ -222,7 +219,7 @@ mod1-pack-voltage OBJECT-TYPE
     ::= { module1PackInfo 7 }
 
 mod1-charge-current OBJECT-TYPE
-    SYNTAX          Unsigned32
+    SYNTAX          Integer32
     UNITS           "A"
     MAX-ACCESS      read-only
     STATUS          current
@@ -230,7 +227,7 @@ mod1-charge-current OBJECT-TYPE
     ::= { module1PackInfo 8 }
 
 mod1-discharge-current OBJECT-TYPE
-    SYNTAX          Unsigned32
+    SYNTAX          Integer32
     UNITS           "A"
     MAX-ACCESS      read-only
     STATUS          current
@@ -564,7 +561,7 @@ mod2-pack-voltage OBJECT-TYPE
     ::= { module2PackInfo 7 }
 
 mod2-charge-current OBJECT-TYPE
-    SYNTAX          Unsigned32
+    SYNTAX          Integer32
     UNITS           "A"
     MAX-ACCESS      read-only
     STATUS          current
@@ -572,7 +569,7 @@ mod2-charge-current OBJECT-TYPE
     ::= { module2PackInfo 8 }
 
 mod2-discharge-current OBJECT-TYPE
-    SYNTAX          Unsigned32
+    SYNTAX          Integer32
     UNITS           "A"
     MAX-ACCESS      read-only
     STATUS          current
@@ -902,7 +899,7 @@ mod3-pack-voltage OBJECT-TYPE
     ::= { module3PackInfo 7 }
 
 mod3-charge-current OBJECT-TYPE
-    SYNTAX          Unsigned32
+    SYNTAX          Integer32
     UNITS           "A"
     MAX-ACCESS      read-only
     STATUS          current
@@ -910,7 +907,7 @@ mod3-charge-current OBJECT-TYPE
     ::= { module3PackInfo 8 }
 
 mod3-discharge-current OBJECT-TYPE
-    SYNTAX          Unsigned32
+    SYNTAX          Integer32
     UNITS           "A"
     MAX-ACCESS      read-only
     STATUS          current
@@ -1240,7 +1237,7 @@ mod4-pack-voltage OBJECT-TYPE
     ::= { module4PackInfo 7 }
 
 mod4-charge-current OBJECT-TYPE
-    SYNTAX          Unsigned32
+    SYNTAX          Integer32
     UNITS           "A"
     MAX-ACCESS      read-only
     STATUS          current
@@ -1248,7 +1245,7 @@ mod4-charge-current OBJECT-TYPE
     ::= { module4PackInfo 8 }
 
 mod4-discharge-current OBJECT-TYPE
-    SYNTAX          Unsigned32
+    SYNTAX          Integer32
     UNITS           "A"
     MAX-ACCESS      read-only
     STATUS          current
@@ -1387,81 +1384,6 @@ mod4-soc-low-alarm-value OBJECT-TYPE
 
 -- Module 5-8 Objects (following same pattern as modules 1-4)
 -- For brevity, showing abbreviated structure for modules 5-8
--- Each module has identical structure: 16 cell voltages, 14 pack info, 7 alarms, 5 parameters
-
--- Module 5 Objects
-module5CellVoltage OBJECT IDENTIFIER ::= { bmsModule5 1 }
-module5PackInfo OBJECT IDENTIFIER ::= { bmsModule5 2 }
-module5Alarms OBJECT IDENTIFIER ::= { bmsModule5 3 }
-module5Parameters OBJECT IDENTIFIER ::= { bmsModule5 4 }
-
--- Module 5 Cell Voltages (16 cells) - abbreviated for space
-mod5-cell1-voltage OBJECT-TYPE
-    SYNTAX          Unsigned32
-    UNITS           "mV"
-    MAX-ACCESS      read-only
-    STATUS          current
-    DESCRIPTION     "Module 5 Cell 1 voltage value in mV (0-5000)"
-    ::= { module5CellVoltage 1 }
-
--- ... (mod5-cell2-voltage through mod5-cell16-voltage follow same pattern)
-
--- Module 5 Pack Information - abbreviated
-mod5-cell-max-voltage OBJECT-TYPE
-    SYNTAX          Unsigned32
-    UNITS           "mV"
-    MAX-ACCESS      read-only
-    STATUS          current
-    DESCRIPTION     "Module 5 Maximum cell voltage in pack (0-5000 mV)"
-    ::= { module5PackInfo 1 }
-
--- ... (other pack info objects follow same pattern as module 1)
-
--- Module 5 Alarms - abbreviated
-mod5-cell-overvoltage-alarms OBJECT-TYPE
-    SYNTAX          Unsigned32
-    MAX-ACCESS      read-only
-    STATUS          current
-    DESCRIPTION     "Module 5 Cell overvoltage alarms (bit field for cells 1-16)"
-    ::= { module5Alarms 1 }
-
--- ... (other alarm objects follow same pattern as module 1)
-
--- Module 5 Parameters - abbreviated
-mod5-cell-overvoltage-alarm-value OBJECT-TYPE
-    SYNTAX          Unsigned32
-    UNITS           "V"
-    MAX-ACCESS      read-write
-    STATUS          current
-    DESCRIPTION     "Module 5 Cell overvoltage alarm threshold (3000-4200, display as V/1000)"
-    ::= { module5Parameters 1 }
-
--- ... (other parameter objects follow same pattern as module 1)
-
--- Module 6 Objects
-module6CellVoltage OBJECT IDENTIFIER ::= { bmsModule6 1 }
-module6PackInfo OBJECT IDENTIFIER ::= { bmsModule6 2 }
-module6Alarms OBJECT IDENTIFIER ::= { bmsModule6 3 }
-module6Parameters OBJECT IDENTIFIER ::= { bmsModule6 4 }
-
--- Module 6 abbreviated definitions follow same pattern as module 5
-
--- Module 7 Objects
-module7CellVoltage OBJECT IDENTIFIER ::= { bmsModule7 1 }
-module7PackInfo OBJECT IDENTIFIER ::= { bmsModule7 2 }
-module7Alarms OBJECT IDENTIFIER ::= { bmsModule7 3 }
-module7Parameters OBJECT IDENTIFIER ::= { bmsModule7 4 }
-
--- Module 7 abbreviated definitions follow same pattern as module 5
-
--- Module 8 Objects
-module8CellVoltage OBJECT IDENTIFIER ::= { bmsModule8 1 }
-module8PackInfo OBJECT IDENTIFIER ::= { bmsModule8 2 }
-module8Alarms OBJECT IDENTIFIER ::= { bmsModule8 3 }
-module8Parameters OBJECT IDENTIFIER ::= { bmsModule8 4 }
-
--- Module 8 abbreviated definitions follow same pattern as module 5
-
 -- Conformance Groups
 module1Group OBJECT-GROUP
     OBJECTS {
@@ -1551,36 +1473,1444 @@ module4Group OBJECT-GROUP
     DESCRIPTION "Complete objects for BMS Module 4"
     ::= { batModule 94 }
 
+-- Module 5 Definition
+bmsModule5 OBJECT IDENTIFIER ::= { batModule 5 }
+module5CellVoltage OBJECT IDENTIFIER ::= { bmsModule5 1 }
+module5PackInfo OBJECT IDENTIFIER ::= { bmsModule5 2 }
+module5Alarms OBJECT IDENTIFIER ::= { bmsModule5 3 }
+module5Parameters OBJECT IDENTIFIER ::= { bmsModule5 4 }
+
+-- Module 5 Cell Voltages (16 cells)
+mod5-cell1-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "mV"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 5 Cell 1 voltage value in mV (0-5000)"
+    ::= { module5CellVoltage 1 }
+
+mod5-cell2-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "mV"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 5 Cell 2 voltage value in mV"
+    ::= { module5CellVoltage 2 }
+
+mod5-cell3-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "mV"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 5 Cell 3 voltage value in mV"
+    ::= { module5CellVoltage 3 }
+
+mod5-cell4-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "mV"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 5 Cell 4 voltage value in mV"
+    ::= { module5CellVoltage 4 }
+
+mod5-cell5-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "mV"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 5 Cell 5 voltage value in mV"
+    ::= { module5CellVoltage 5 }
+
+mod5-cell6-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "mV"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 5 Cell 6 voltage value in mV"
+    ::= { module5CellVoltage 6 }
+
+mod5-cell7-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "mV"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 5 Cell 7 voltage value in mV"
+    ::= { module5CellVoltage 7 }
+
+mod5-cell8-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "mV"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 5 Cell 8 voltage value in mV"
+    ::= { module5CellVoltage 8 }
+
+mod5-cell9-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "mV"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 5 Cell 9 voltage value in mV"
+    ::= { module5CellVoltage 9 }
+
+mod5-cell10-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "mV"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 5 Cell 10 voltage value in mV"
+    ::= { module5CellVoltage 10 }
+
+mod5-cell11-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "mV"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 5 Cell 11 voltage value in mV"
+    ::= { module5CellVoltage 11 }
+
+mod5-cell12-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "mV"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 5 Cell 12 voltage value in mV"
+    ::= { module5CellVoltage 12 }
+
+mod5-cell13-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "mV"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 5 Cell 13 voltage value in mV"
+    ::= { module5CellVoltage 13 }
+
+mod5-cell14-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "mV"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 5 Cell 14 voltage value in mV"
+    ::= { module5CellVoltage 14 }
+
+mod5-cell15-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "mV"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 5 Cell 15 voltage value in mV"
+    ::= { module5CellVoltage 15 }
+
+mod5-cell16-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "mV"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 5 Cell 16 voltage value in mV"
+    ::= { module5CellVoltage 16 }
+
+-- Module 5 Pack Information
+mod5-cell-max-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "mV"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 5 Maximum cell voltage in pack"
+    ::= { module5PackInfo 1 }
+
+mod5-cell-min-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "mV"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 5 Minimum cell voltage in pack"
+    ::= { module5PackInfo 2 }
+
+mod5-cell-avg-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "mV"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 5 Average cell voltage in pack"
+    ::= { module5PackInfo 3 }
+
+mod5-avg-temp OBJECT-TYPE
+    SYNTAX          Integer32
+    UNITS           "Celsius"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 5 average temperature in pack"
+    ::= { module5PackInfo 4 }
+
+mod5-amb-temp OBJECT-TYPE
+    SYNTAX          Integer32
+    UNITS           "Celsius"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 5 ambiant temperature in pack"
+    ::= { module5PackInfo 5 }
+
+mod5-total-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "V"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 5 Total battery pack voltage (0-7000 V, display as V/100)"
+    ::= { module5PackInfo 6 }
+
+mod5-pack-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "V"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 5 Pack voltage value"
+    ::= { module5PackInfo 7 }
+
+mod5-charge-current OBJECT-TYPE
+    SYNTAX          Integer32
+    UNITS           "A"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 5 Battery pack charge current (0-60000, display as A/100)"
+    ::= { module5PackInfo 8 }
+
+mod5-discharge-current OBJECT-TYPE
+    SYNTAX          Integer32
+    UNITS           "A"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 5 Battery pack discharge current"
+    ::= { module5PackInfo 9 }
+
+mod5-soc OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "percent"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 5 State of Charge (0-100%)"
+    ::= { module5PackInfo 10 }
+
+mod5-soh OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "percent"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 5 State of Health (0-100%)"
+    ::= { module5PackInfo 11 }
+
+mod5-rated-capacity OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "Ah"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 5 Rated capacity in Ah"
+    ::= { module5PackInfo 12 }
+
+mod5-remaining-capacity OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "Ah"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 5 Remaining capacity in Ah"
+    ::= { module5PackInfo 13 }
+
+mod5-running-state OBJECT-TYPE
+    SYNTAX          Unsigned32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 5 Running state (0=Standby, 1=Charging, 2=Discharging, 3=Fault)"
+    ::= { module5PackInfo 14 }
+
+-- Module 5 Alarms
+mod5-cell-overvoltage-alarms OBJECT-TYPE
+    SYNTAX          Unsigned32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 5 Cell overvoltage alarm flags (bitmap)"
+    ::= { module5Alarms 1 }
+
+mod5-cell-undervoltage-alarms OBJECT-TYPE
+    SYNTAX          Unsigned32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 5 Cell undervoltage alarm flags (bitmap)"
+    ::= { module5Alarms 2 }
+
+mod5-pack-overvoltage-alarm OBJECT-TYPE
+    SYNTAX          Unsigned32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 5 Pack overvoltage alarm (0=Normal, 1=Alarm)"
+    ::= { module5Alarms 7 }
+
+mod5-pack-undervoltage-alarm OBJECT-TYPE
+    SYNTAX          Unsigned32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 5 Pack undervoltage alarm (0=Normal, 1=Alarm)"
+    ::= { module5Alarms 8 }
+
+mod5-charge-overcurrent-alarm OBJECT-TYPE
+    SYNTAX          Unsigned32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 5 Charge overcurrent alarm (0=Normal, 1=Alarm)"
+    ::= { module5Alarms 9 }
+
+mod5-discharge-overcurrent-alarm OBJECT-TYPE
+    SYNTAX          Unsigned32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 5 Discharge overcurrent alarm (0=Normal, 1=Alarm)"
+    ::= { module5Alarms 10 }
+
+mod5-soc-low-alarm OBJECT-TYPE
+    SYNTAX          Unsigned32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 5 SOC low alarm (0=Normal, 1=Alarm)"
+    ::= { module5Alarms 11 }
+
+-- Module 5 Parameters
+mod5-cell-overvoltage-alarm-value OBJECT-TYPE
+    SYNTAX          Integer32
+    UNITS           "mV"
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION     "Module 5 Cell overvoltage alarm threshold in mV"
+    ::= { module5Parameters 1 }
+
+mod5-cell-overvoltage-alarm-recovery OBJECT-TYPE
+    SYNTAX          Integer32
+    UNITS           "mV"
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION     "Module 5 Cell overvoltage alarm recovery threshold in mV"
+    ::= { module5Parameters 2 }
+
+mod5-cell-undervoltage-alarm-value OBJECT-TYPE
+    SYNTAX          Integer32
+    UNITS           "mV"
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION     "Module 5 Cell undervoltage alarm threshold in mV"
+    ::= { module5Parameters 3 }
+
+mod5-cell-undervoltage-alarm-recovery OBJECT-TYPE
+    SYNTAX          Integer32
+    UNITS           "mV"
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION     "Module 5 Cell undervoltage alarm recovery threshold in mV"
+    ::= { module5Parameters 4 }
+
+mod5-soc-low-alarm-value OBJECT-TYPE
+    SYNTAX          Integer32
+    UNITS           "percent"
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION     "Module 5 SOC low alarm threshold in percent"
+    ::= { module5Parameters 6 }
+
 module5Group OBJECT-GROUP
     OBJECTS {
-        mod5-cell1-voltage, mod5-cell-overvoltage-alarms, mod5-cell-overvoltage-alarm-value
+        mod5-cell1-voltage, mod5-cell2-voltage, mod5-cell3-voltage, mod5-cell4-voltage,
+        mod5-cell5-voltage, mod5-cell6-voltage, mod5-cell7-voltage, mod5-cell8-voltage,
+        mod5-cell9-voltage, mod5-cell10-voltage, mod5-cell11-voltage, mod5-cell12-voltage,
+        mod5-cell13-voltage, mod5-cell14-voltage, mod5-cell15-voltage, mod5-cell16-voltage,
+        mod5-cell-max-voltage, mod5-cell-min-voltage, mod5-cell-avg-voltage,
+        mod5-avg-temp, mod5-amb-temp, mod5-total-voltage, mod5-pack-voltage,
+        mod5-charge-current, mod5-discharge-current, mod5-soc, mod5-soh,
+        mod5-rated-capacity, mod5-remaining-capacity, mod5-running-state,
+        mod5-cell-overvoltage-alarms, mod5-cell-undervoltage-alarms,
+        mod5-pack-overvoltage-alarm, mod5-pack-undervoltage-alarm,
+        mod5-charge-overcurrent-alarm, mod5-discharge-overcurrent-alarm, mod5-soc-low-alarm,
+        mod5-cell-overvoltage-alarm-value, mod5-cell-overvoltage-alarm-recovery,
+        mod5-cell-undervoltage-alarm-value, mod5-cell-undervoltage-alarm-recovery,
+        mod5-soc-low-alarm-value
     }
     STATUS current
-    DESCRIPTION "Key objects for BMS Module 5 (abbreviated)"
+    DESCRIPTION "Complete objects for BMS Module 5"
     ::= { batModule 95 }
+
+-- Module 6 Definition
+bmsModule6 OBJECT IDENTIFIER ::= { batModule 6 }
+module6CellVoltage OBJECT IDENTIFIER ::= { bmsModule6 1 }
+module6PackInfo OBJECT IDENTIFIER ::= { bmsModule6 2 }
+module6Alarms OBJECT IDENTIFIER ::= { bmsModule6 3 }
+module6Parameters OBJECT IDENTIFIER ::= { bmsModule6 4 }
+
+-- Module 6 Cell Voltages (16 cells)
+mod6-cell1-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "mV"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 6 Cell 1 voltage value in mV (0-5000)"
+    ::= { module6CellVoltage 1 }
+
+mod6-cell2-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "mV"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 6 Cell 2 voltage value in mV"
+    ::= { module6CellVoltage 2 }
+
+mod6-cell3-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "mV"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 6 Cell 3 voltage value in mV"
+    ::= { module6CellVoltage 3 }
+
+mod6-cell4-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "mV"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 6 Cell 4 voltage value in mV"
+    ::= { module6CellVoltage 4 }
+
+mod6-cell5-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "mV"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 6 Cell 5 voltage value in mV"
+    ::= { module6CellVoltage 5 }
+
+mod6-cell6-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "mV"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 6 Cell 6 voltage value in mV"
+    ::= { module6CellVoltage 6 }
+
+mod6-cell7-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "mV"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 6 Cell 7 voltage value in mV"
+    ::= { module6CellVoltage 7 }
+
+mod6-cell8-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "mV"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 6 Cell 8 voltage value in mV"
+    ::= { module6CellVoltage 8 }
+
+mod6-cell9-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "mV"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 6 Cell 9 voltage value in mV"
+    ::= { module6CellVoltage 9 }
+
+mod6-cell10-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "mV"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 6 Cell 10 voltage value in mV"
+    ::= { module6CellVoltage 10 }
+
+mod6-cell11-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "mV"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 6 Cell 11 voltage value in mV"
+    ::= { module6CellVoltage 11 }
+
+mod6-cell12-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "mV"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 6 Cell 12 voltage value in mV"
+    ::= { module6CellVoltage 12 }
+
+mod6-cell13-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "mV"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 6 Cell 13 voltage value in mV"
+    ::= { module6CellVoltage 13 }
+
+mod6-cell14-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "mV"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 6 Cell 14 voltage value in mV"
+    ::= { module6CellVoltage 14 }
+
+mod6-cell15-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "mV"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 6 Cell 15 voltage value in mV"
+    ::= { module6CellVoltage 15 }
+
+mod6-cell16-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "mV"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 6 Cell 16 voltage value in mV"
+    ::= { module6CellVoltage 16 }
+
+-- Module 6 Pack Information
+mod6-cell-max-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "mV"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 6 Maximum cell voltage in pack"
+    ::= { module6PackInfo 1 }
+
+mod6-cell-min-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "mV"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 6 Minimum cell voltage in pack"
+    ::= { module6PackInfo 2 }
+
+mod6-cell-avg-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "mV"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 6 Average cell voltage in pack"
+    ::= { module6PackInfo 3 }
+
+mod6-avg-temp OBJECT-TYPE
+    SYNTAX          Integer32
+    UNITS           "Celsius"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 6 average temperature in pack"
+    ::= { module6PackInfo 4 }
+
+mod6-amb-temp OBJECT-TYPE
+    SYNTAX          Integer32
+    UNITS           "Celsius"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 6 ambiant temperature in pack"
+    ::= { module6PackInfo 5 }
+
+mod6-total-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "V"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 6 Total battery pack voltage (0-7000 V, display as V/100)"
+    ::= { module6PackInfo 6 }
+
+mod6-pack-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "V"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 6 Pack voltage value"
+    ::= { module6PackInfo 7 }
+
+mod6-charge-current OBJECT-TYPE
+    SYNTAX          Integer32
+    UNITS           "A"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 6 Battery pack charge current (0-60000, display as A/100)"
+    ::= { module6PackInfo 8 }
+
+mod6-discharge-current OBJECT-TYPE
+    SYNTAX          Integer32
+    UNITS           "A"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 6 Battery pack discharge current"
+    ::= { module6PackInfo 9 }
+
+mod6-soc OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "percent"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 6 State of Charge (0-100%)"
+    ::= { module6PackInfo 10 }
+
+mod6-soh OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "percent"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 6 State of Health (0-100%)"
+    ::= { module6PackInfo 11 }
+
+mod6-rated-capacity OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "Ah"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 6 Rated capacity in Ah"
+    ::= { module6PackInfo 12 }
+
+mod6-remaining-capacity OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "Ah"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 6 Remaining capacity in Ah"
+    ::= { module6PackInfo 13 }
+
+mod6-running-state OBJECT-TYPE
+    SYNTAX          Unsigned32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 6 Running state (0=Standby, 1=Charging, 2=Discharging, 3=Fault)"
+    ::= { module6PackInfo 14 }
+
+-- Module 6 Alarms
+mod6-cell-overvoltage-alarms OBJECT-TYPE
+    SYNTAX          Unsigned32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 6 Cell overvoltage alarm flags (bitmap)"
+    ::= { module6Alarms 1 }
+
+mod6-cell-undervoltage-alarms OBJECT-TYPE
+    SYNTAX          Unsigned32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 6 Cell undervoltage alarm flags (bitmap)"
+    ::= { module6Alarms 2 }
+
+mod6-pack-overvoltage-alarm OBJECT-TYPE
+    SYNTAX          Unsigned32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 6 Pack overvoltage alarm (0=Normal, 1=Alarm)"
+    ::= { module6Alarms 7 }
+
+mod6-pack-undervoltage-alarm OBJECT-TYPE
+    SYNTAX          Unsigned32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 6 Pack undervoltage alarm (0=Normal, 1=Alarm)"
+    ::= { module6Alarms 8 }
+
+mod6-charge-overcurrent-alarm OBJECT-TYPE
+    SYNTAX          Unsigned32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 6 Charge overcurrent alarm (0=Normal, 1=Alarm)"
+    ::= { module6Alarms 9 }
+
+mod6-discharge-overcurrent-alarm OBJECT-TYPE
+    SYNTAX          Unsigned32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 6 Discharge overcurrent alarm (0=Normal, 1=Alarm)"
+    ::= { module6Alarms 10 }
+
+mod6-soc-low-alarm OBJECT-TYPE
+    SYNTAX          Unsigned32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 6 SOC low alarm (0=Normal, 1=Alarm)"
+    ::= { module6Alarms 11 }
+
+-- Module 6 Parameters
+mod6-cell-overvoltage-alarm-value OBJECT-TYPE
+    SYNTAX          Integer32
+    UNITS           "mV"
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION     "Module 6 Cell overvoltage alarm threshold in mV"
+    ::= { module6Parameters 1 }
+
+mod6-cell-overvoltage-alarm-recovery OBJECT-TYPE
+    SYNTAX          Integer32
+    UNITS           "mV"
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION     "Module 6 Cell overvoltage alarm recovery threshold in mV"
+    ::= { module6Parameters 2 }
+
+mod6-cell-undervoltage-alarm-value OBJECT-TYPE
+    SYNTAX          Integer32
+    UNITS           "mV"
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION     "Module 6 Cell undervoltage alarm threshold in mV"
+    ::= { module6Parameters 3 }
+
+mod6-cell-undervoltage-alarm-recovery OBJECT-TYPE
+    SYNTAX          Integer32
+    UNITS           "mV"
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION     "Module 6 Cell undervoltage alarm recovery threshold in mV"
+    ::= { module6Parameters 4 }
+
+mod6-soc-low-alarm-value OBJECT-TYPE
+    SYNTAX          Integer32
+    UNITS           "percent"
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION     "Module 6 SOC low alarm threshold in percent"
+    ::= { module6Parameters 6 }
 
 module6Group OBJECT-GROUP
     OBJECTS {
-        mod6-cell1-voltage, mod6-cell-overvoltage-alarms, mod6-cell-overvoltage-alarm-value
+        mod6-cell1-voltage, mod6-cell2-voltage, mod6-cell3-voltage, mod6-cell4-voltage,
+        mod6-cell5-voltage, mod6-cell6-voltage, mod6-cell7-voltage, mod6-cell8-voltage,
+        mod6-cell9-voltage, mod6-cell10-voltage, mod6-cell11-voltage, mod6-cell12-voltage,
+        mod6-cell13-voltage, mod6-cell14-voltage, mod6-cell15-voltage, mod6-cell16-voltage,
+        mod6-cell-max-voltage, mod6-cell-min-voltage, mod6-cell-avg-voltage,
+        mod6-avg-temp, mod6-amb-temp, mod6-total-voltage, mod6-pack-voltage,
+        mod6-charge-current, mod6-discharge-current, mod6-soc, mod6-soh,
+        mod6-rated-capacity, mod6-remaining-capacity, mod6-running-state,
+        mod6-cell-overvoltage-alarms, mod6-cell-undervoltage-alarms,
+        mod6-pack-overvoltage-alarm, mod6-pack-undervoltage-alarm,
+        mod6-charge-overcurrent-alarm, mod6-discharge-overcurrent-alarm, mod6-soc-low-alarm,
+        mod6-cell-overvoltage-alarm-value, mod6-cell-overvoltage-alarm-recovery,
+        mod6-cell-undervoltage-alarm-value, mod6-cell-undervoltage-alarm-recovery,
+        mod6-soc-low-alarm-value
     }
     STATUS current
-    DESCRIPTION "Key objects for BMS Module 6 (abbreviated)"
+    DESCRIPTION "Complete objects for BMS Module 6"
     ::= { batModule 96 }
+
+-- Module 7 Definition
+bmsModule7 OBJECT IDENTIFIER ::= { batModule 7 }
+module7CellVoltage OBJECT IDENTIFIER ::= { bmsModule7 1 }
+module7PackInfo OBJECT IDENTIFIER ::= { bmsModule7 2 }
+module7Alarms OBJECT IDENTIFIER ::= { bmsModule7 3 }
+module7Parameters OBJECT IDENTIFIER ::= { bmsModule7 4 }
+
+-- Module 7 Cell Voltages (16 cells)
+mod7-cell1-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "mV"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 7 Cell 1 voltage value in mV (0-5000)"
+    ::= { module7CellVoltage 1 }
+
+mod7-cell2-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "mV"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 7 Cell 2 voltage value in mV"
+    ::= { module7CellVoltage 2 }
+
+mod7-cell3-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "mV"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 7 Cell 3 voltage value in mV"
+    ::= { module7CellVoltage 3 }
+
+mod7-cell4-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "mV"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 7 Cell 4 voltage value in mV"
+    ::= { module7CellVoltage 4 }
+
+mod7-cell5-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "mV"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 7 Cell 5 voltage value in mV"
+    ::= { module7CellVoltage 5 }
+
+mod7-cell6-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "mV"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 7 Cell 6 voltage value in mV"
+    ::= { module7CellVoltage 6 }
+
+mod7-cell7-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "mV"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 7 Cell 7 voltage value in mV"
+    ::= { module7CellVoltage 7 }
+
+mod7-cell8-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "mV"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 7 Cell 8 voltage value in mV"
+    ::= { module7CellVoltage 8 }
+
+mod7-cell9-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "mV"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 7 Cell 9 voltage value in mV"
+    ::= { module7CellVoltage 9 }
+
+mod7-cell10-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "mV"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 7 Cell 10 voltage value in mV"
+    ::= { module7CellVoltage 10 }
+
+mod7-cell11-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "mV"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 7 Cell 11 voltage value in mV"
+    ::= { module7CellVoltage 11 }
+
+mod7-cell12-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "mV"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 7 Cell 12 voltage value in mV"
+    ::= { module7CellVoltage 12 }
+
+mod7-cell13-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "mV"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 7 Cell 13 voltage value in mV"
+    ::= { module7CellVoltage 13 }
+
+mod7-cell14-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "mV"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 7 Cell 14 voltage value in mV"
+    ::= { module7CellVoltage 14 }
+
+mod7-cell15-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "mV"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 7 Cell 15 voltage value in mV"
+    ::= { module7CellVoltage 15 }
+
+mod7-cell16-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "mV"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 7 Cell 16 voltage value in mV"
+    ::= { module7CellVoltage 16 }
+
+-- Module 7 Pack Information
+mod7-cell-max-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "mV"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 7 Maximum cell voltage in pack"
+    ::= { module7PackInfo 1 }
+
+mod7-cell-min-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "mV"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 7 Minimum cell voltage in pack"
+    ::= { module7PackInfo 2 }
+
+mod7-cell-avg-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "mV"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 7 Average cell voltage in pack"
+    ::= { module7PackInfo 3 }
+
+mod7-avg-temp OBJECT-TYPE
+    SYNTAX          Integer32
+    UNITS           "Celsius"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 7 average temperature in pack"
+    ::= { module7PackInfo 4 }
+
+mod7-amb-temp OBJECT-TYPE
+    SYNTAX          Integer32
+    UNITS           "Celsius"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 7 ambiant temperature in pack"
+    ::= { module7PackInfo 5 }
+
+mod7-total-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "V"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 7 Total battery pack voltage (0-7000 V, display as V/100)"
+    ::= { module7PackInfo 6 }
+
+mod7-pack-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "V"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 7 Pack voltage value"
+    ::= { module7PackInfo 7 }
+
+mod7-charge-current OBJECT-TYPE
+    SYNTAX          Integer32
+    UNITS           "A"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 7 Battery pack charge current (0-60000, display as A/100)"
+    ::= { module7PackInfo 8 }
+
+mod7-discharge-current OBJECT-TYPE
+    SYNTAX          Integer32
+    UNITS           "A"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 7 Battery pack discharge current"
+    ::= { module7PackInfo 9 }
+
+mod7-soc OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "percent"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 7 State of Charge (0-100%)"
+    ::= { module7PackInfo 10 }
+
+mod7-soh OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "percent"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 7 State of Health (0-100%)"
+    ::= { module7PackInfo 11 }
+
+mod7-rated-capacity OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "Ah"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 7 Rated capacity in Ah"
+    ::= { module7PackInfo 12 }
+
+mod7-remaining-capacity OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "Ah"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 7 Remaining capacity in Ah"
+    ::= { module7PackInfo 13 }
+
+mod7-running-state OBJECT-TYPE
+    SYNTAX          Unsigned32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 7 Running state (0=Standby, 1=Charging, 2=Discharging, 3=Fault)"
+    ::= { module7PackInfo 14 }
+
+-- Module 7 Alarms
+mod7-cell-overvoltage-alarms OBJECT-TYPE
+    SYNTAX          Unsigned32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 7 Cell overvoltage alarm flags (bitmap)"
+    ::= { module7Alarms 1 }
+
+mod7-cell-undervoltage-alarms OBJECT-TYPE
+    SYNTAX          Unsigned32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 7 Cell undervoltage alarm flags (bitmap)"
+    ::= { module7Alarms 2 }
+
+mod7-pack-overvoltage-alarm OBJECT-TYPE
+    SYNTAX          Unsigned32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 7 Pack overvoltage alarm (0=Normal, 1=Alarm)"
+    ::= { module7Alarms 7 }
+
+mod7-pack-undervoltage-alarm OBJECT-TYPE
+    SYNTAX          Unsigned32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 7 Pack undervoltage alarm (0=Normal, 1=Alarm)"
+    ::= { module7Alarms 8 }
+
+mod7-charge-overcurrent-alarm OBJECT-TYPE
+    SYNTAX          Unsigned32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 7 Charge overcurrent alarm (0=Normal, 1=Alarm)"
+    ::= { module7Alarms 9 }
+
+mod7-discharge-overcurrent-alarm OBJECT-TYPE
+    SYNTAX          Unsigned32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 7 Discharge overcurrent alarm (0=Normal, 1=Alarm)"
+    ::= { module7Alarms 10 }
+
+mod7-soc-low-alarm OBJECT-TYPE
+    SYNTAX          Unsigned32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 7 SOC low alarm (0=Normal, 1=Alarm)"
+    ::= { module7Alarms 11 }
+
+-- Module 7 Parameters
+mod7-cell-overvoltage-alarm-value OBJECT-TYPE
+    SYNTAX          Integer32
+    UNITS           "mV"
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION     "Module 7 Cell overvoltage alarm threshold in mV"
+    ::= { module7Parameters 1 }
+
+mod7-cell-overvoltage-alarm-recovery OBJECT-TYPE
+    SYNTAX          Integer32
+    UNITS           "mV"
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION     "Module 7 Cell overvoltage alarm recovery threshold in mV"
+    ::= { module7Parameters 2 }
+
+mod7-cell-undervoltage-alarm-value OBJECT-TYPE
+    SYNTAX          Integer32
+    UNITS           "mV"
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION     "Module 7 Cell undervoltage alarm threshold in mV"
+    ::= { module7Parameters 3 }
+
+mod7-cell-undervoltage-alarm-recovery OBJECT-TYPE
+    SYNTAX          Integer32
+    UNITS           "mV"
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION     "Module 7 Cell undervoltage alarm recovery threshold in mV"
+    ::= { module7Parameters 4 }
+
+mod7-soc-low-alarm-value OBJECT-TYPE
+    SYNTAX          Integer32
+    UNITS           "percent"
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION     "Module 7 SOC low alarm threshold in percent"
+    ::= { module7Parameters 6 }
 
 module7Group OBJECT-GROUP
     OBJECTS {
-        mod7-cell1-voltage, mod7-cell-overvoltage-alarms, mod7-cell-overvoltage-alarm-value
+        mod7-cell1-voltage, mod7-cell2-voltage, mod7-cell3-voltage, mod7-cell4-voltage,
+        mod7-cell5-voltage, mod7-cell6-voltage, mod7-cell7-voltage, mod7-cell8-voltage,
+        mod7-cell9-voltage, mod7-cell10-voltage, mod7-cell11-voltage, mod7-cell12-voltage,
+        mod7-cell13-voltage, mod7-cell14-voltage, mod7-cell15-voltage, mod7-cell16-voltage,
+        mod7-cell-max-voltage, mod7-cell-min-voltage, mod7-cell-avg-voltage,
+        mod7-avg-temp, mod7-amb-temp, mod7-total-voltage, mod7-pack-voltage,
+        mod7-charge-current, mod7-discharge-current, mod7-soc, mod7-soh,
+        mod7-rated-capacity, mod7-remaining-capacity, mod7-running-state,
+        mod7-cell-overvoltage-alarms, mod7-cell-undervoltage-alarms,
+        mod7-pack-overvoltage-alarm, mod7-pack-undervoltage-alarm,
+        mod7-charge-overcurrent-alarm, mod7-discharge-overcurrent-alarm, mod7-soc-low-alarm,
+        mod7-cell-overvoltage-alarm-value, mod7-cell-overvoltage-alarm-recovery,
+        mod7-cell-undervoltage-alarm-value, mod7-cell-undervoltage-alarm-recovery,
+        mod7-soc-low-alarm-value
     }
     STATUS current
-    DESCRIPTION "Key objects for BMS Module 7 (abbreviated)"
+    DESCRIPTION "Complete objects for BMS Module 7"
     ::= { batModule 97 }
+
+-- Module 8 Definition
+bmsModule8 OBJECT IDENTIFIER ::= { batModule 8 }
+module8CellVoltage OBJECT IDENTIFIER ::= { bmsModule8 1 }
+module8PackInfo OBJECT IDENTIFIER ::= { bmsModule8 2 }
+module8Alarms OBJECT IDENTIFIER ::= { bmsModule8 3 }
+module8Parameters OBJECT IDENTIFIER ::= { bmsModule8 4 }
+
+-- Module 8 Cell Voltages (16 cells)
+mod8-cell1-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "mV"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 8 Cell 1 voltage value in mV (0-5000)"
+    ::= { module8CellVoltage 1 }
+
+mod8-cell2-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "mV"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 8 Cell 2 voltage value in mV"
+    ::= { module8CellVoltage 2 }
+
+mod8-cell3-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "mV"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 8 Cell 3 voltage value in mV"
+    ::= { module8CellVoltage 3 }
+
+mod8-cell4-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "mV"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 8 Cell 4 voltage value in mV"
+    ::= { module8CellVoltage 4 }
+
+mod8-cell5-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "mV"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 8 Cell 5 voltage value in mV"
+    ::= { module8CellVoltage 5 }
+
+mod8-cell6-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "mV"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 8 Cell 6 voltage value in mV"
+    ::= { module8CellVoltage 6 }
+
+mod8-cell7-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "mV"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 8 Cell 7 voltage value in mV"
+    ::= { module8CellVoltage 7 }
+
+mod8-cell8-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "mV"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 8 Cell 8 voltage value in mV"
+    ::= { module8CellVoltage 8 }
+
+mod8-cell9-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "mV"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 8 Cell 9 voltage value in mV"
+    ::= { module8CellVoltage 9 }
+
+mod8-cell10-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "mV"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 8 Cell 10 voltage value in mV"
+    ::= { module8CellVoltage 10 }
+
+mod8-cell11-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "mV"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 8 Cell 11 voltage value in mV"
+    ::= { module8CellVoltage 11 }
+
+mod8-cell12-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "mV"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 8 Cell 12 voltage value in mV"
+    ::= { module8CellVoltage 12 }
+
+mod8-cell13-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "mV"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 8 Cell 13 voltage value in mV"
+    ::= { module8CellVoltage 13 }
+
+mod8-cell14-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "mV"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 8 Cell 14 voltage value in mV"
+    ::= { module8CellVoltage 14 }
+
+mod8-cell15-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "mV"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 8 Cell 15 voltage value in mV"
+    ::= { module8CellVoltage 15 }
+
+mod8-cell16-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "mV"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 8 Cell 16 voltage value in mV"
+    ::= { module8CellVoltage 16 }
+
+-- Module 8 Pack Information
+mod8-cell-max-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "mV"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 8 Maximum cell voltage in pack"
+    ::= { module8PackInfo 1 }
+
+mod8-cell-min-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "mV"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 8 Minimum cell voltage in pack"
+    ::= { module8PackInfo 2 }
+
+mod8-cell-avg-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "mV"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 8 Average cell voltage in pack"
+    ::= { module8PackInfo 3 }
+
+mod8-avg-temp OBJECT-TYPE
+    SYNTAX          Integer32
+    UNITS           "Celsius"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 8 average temperature in pack"
+    ::= { module8PackInfo 4 }
+
+mod8-amb-temp OBJECT-TYPE
+    SYNTAX          Integer32
+    UNITS           "Celsius"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 8 ambiant temperature in pack"
+    ::= { module8PackInfo 5 }
+
+mod8-total-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "V"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 8 Total battery pack voltage (0-7000 V, display as V/100)"
+    ::= { module8PackInfo 6 }
+
+mod8-pack-voltage OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "V"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 8 Pack voltage value"
+    ::= { module8PackInfo 7 }
+
+mod8-charge-current OBJECT-TYPE
+    SYNTAX          Integer32
+    UNITS           "A"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 8 Battery pack charge current (0-60000, display as A/100)"
+    ::= { module8PackInfo 8 }
+
+mod8-discharge-current OBJECT-TYPE
+    SYNTAX          Integer32
+    UNITS           "A"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 8 Battery pack discharge current"
+    ::= { module8PackInfo 9 }
+
+mod8-soc OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "percent"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 8 State of Charge (0-100%)"
+    ::= { module8PackInfo 10 }
+
+mod8-soh OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "percent"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 8 State of Health (0-100%)"
+    ::= { module8PackInfo 11 }
+
+mod8-rated-capacity OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "Ah"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 8 Rated capacity in Ah"
+    ::= { module8PackInfo 12 }
+
+mod8-remaining-capacity OBJECT-TYPE
+    SYNTAX          Unsigned32
+    UNITS           "Ah"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 8 Remaining capacity in Ah"
+    ::= { module8PackInfo 13 }
+
+mod8-running-state OBJECT-TYPE
+    SYNTAX          Unsigned32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 8 Running state (0=Standby, 1=Charging, 2=Discharging, 3=Fault)"
+    ::= { module8PackInfo 14 }
+
+-- Module 8 Alarms
+mod8-cell-overvoltage-alarms OBJECT-TYPE
+    SYNTAX          Unsigned32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 8 Cell overvoltage alarm flags (bitmap)"
+    ::= { module8Alarms 1 }
+
+mod8-cell-undervoltage-alarms OBJECT-TYPE
+    SYNTAX          Unsigned32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 8 Cell undervoltage alarm flags (bitmap)"
+    ::= { module8Alarms 2 }
+
+mod8-pack-overvoltage-alarm OBJECT-TYPE
+    SYNTAX          Unsigned32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 8 Pack overvoltage alarm (0=Normal, 1=Alarm)"
+    ::= { module8Alarms 7 }
+
+mod8-pack-undervoltage-alarm OBJECT-TYPE
+    SYNTAX          Unsigned32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 8 Pack undervoltage alarm (0=Normal, 1=Alarm)"
+    ::= { module8Alarms 8 }
+
+mod8-charge-overcurrent-alarm OBJECT-TYPE
+    SYNTAX          Unsigned32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 8 Charge overcurrent alarm (0=Normal, 1=Alarm)"
+    ::= { module8Alarms 9 }
+
+mod8-discharge-overcurrent-alarm OBJECT-TYPE
+    SYNTAX          Unsigned32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 8 Discharge overcurrent alarm (0=Normal, 1=Alarm)"
+    ::= { module8Alarms 10 }
+
+mod8-soc-low-alarm OBJECT-TYPE
+    SYNTAX          Unsigned32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION     "Module 8 SOC low alarm (0=Normal, 1=Alarm)"
+    ::= { module8Alarms 11 }
+
+-- Module 8 Parameters
+mod8-cell-overvoltage-alarm-value OBJECT-TYPE
+    SYNTAX          Integer32
+    UNITS           "mV"
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION     "Module 8 Cell overvoltage alarm threshold in mV"
+    ::= { module8Parameters 1 }
+
+mod8-cell-overvoltage-alarm-recovery OBJECT-TYPE
+    SYNTAX          Integer32
+    UNITS           "mV"
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION     "Module 8 Cell overvoltage alarm recovery threshold in mV"
+    ::= { module8Parameters 2 }
+
+mod8-cell-undervoltage-alarm-value OBJECT-TYPE
+    SYNTAX          Integer32
+    UNITS           "mV"
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION     "Module 8 Cell undervoltage alarm threshold in mV"
+    ::= { module8Parameters 3 }
+
+mod8-cell-undervoltage-alarm-recovery OBJECT-TYPE
+    SYNTAX          Integer32
+    UNITS           "mV"
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION     "Module 8 Cell undervoltage alarm recovery threshold in mV"
+    ::= { module8Parameters 4 }
+
+mod8-soc-low-alarm-value OBJECT-TYPE
+    SYNTAX          Integer32
+    UNITS           "percent"
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION     "Module 8 SOC low alarm threshold in percent"
+    ::= { module8Parameters 6 }
 
 module8Group OBJECT-GROUP
     OBJECTS {
-        mod8-cell1-voltage, mod8-cell-overvoltage-alarms, mod8-cell-overvoltage-alarm-value
+        mod8-cell1-voltage, mod8-cell2-voltage, mod8-cell3-voltage, mod8-cell4-voltage,
+        mod8-cell5-voltage, mod8-cell6-voltage, mod8-cell7-voltage, mod8-cell8-voltage,
+        mod8-cell9-voltage, mod8-cell10-voltage, mod8-cell11-voltage, mod8-cell12-voltage,
+        mod8-cell13-voltage, mod8-cell14-voltage, mod8-cell15-voltage, mod8-cell16-voltage,
+        mod8-cell-max-voltage, mod8-cell-min-voltage, mod8-cell-avg-voltage,
+        mod8-avg-temp, mod8-amb-temp, mod8-total-voltage, mod8-pack-voltage,
+        mod8-charge-current, mod8-discharge-current, mod8-soc, mod8-soh,
+        mod8-rated-capacity, mod8-remaining-capacity, mod8-running-state,
+        mod8-cell-overvoltage-alarms, mod8-cell-undervoltage-alarms,
+        mod8-pack-overvoltage-alarm, mod8-pack-undervoltage-alarm,
+        mod8-charge-overcurrent-alarm, mod8-discharge-overcurrent-alarm, mod8-soc-low-alarm,
+        mod8-cell-overvoltage-alarm-value, mod8-cell-overvoltage-alarm-recovery,
+        mod8-cell-undervoltage-alarm-value, mod8-cell-undervoltage-alarm-recovery,
+        mod8-soc-low-alarm-value
     }
     STATUS current
-    DESCRIPTION "Key objects for BMS Module 8 (abbreviated)"
+    DESCRIPTION "Complete objects for BMS Module 8"
     ::= { batModule 98 }
 
 -- Module Compliance
