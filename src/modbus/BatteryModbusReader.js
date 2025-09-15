@@ -13,6 +13,17 @@ class BatteryModbusReader {
         this.readInterval = null;
         this.readIntervalMs = 1000; // 1초마다 읽기
         this.simulationMode = process.env.SIMULATION_MODE === 'true' || false;
+        this.stats = {
+            totalReads: 0,
+            successfulReads: 0,
+            failedReads: 0,
+            lastReadTime: null,
+            lastSuccessTime: null,
+            lastFailureTime: null,
+            consecutiveFailures: 0,
+            maxConsecutiveFailures: 0
+        };
+        this.startStatsMonitoring();
     }
 
     /**
@@ -200,28 +211,73 @@ class BatteryModbusReader {
      * @returns {Promise<Object>} 모든 모듈의 데이터
      */
     async readAllModulesData() {
+        const batchId = Math.random().toString(36).substring(2, 11);
+        const startTime = Date.now();
+        
+        console.log(`[BATCH-${batchId}] 모든 모듈 데이터 읽기 시작 - 모듈 수: ${installedModuleCount}`);
+        
         const promises = [];
         
         // 모듈 39-46에 대한 데이터 읽기 Promise 생성
         for (let moduleId = startModuleId; moduleId < startModuleId + installedModuleCount; moduleId++) {
+            console.log(`[BATCH-${batchId}] 모듈 ${moduleId} 읽기 Promise 생성`);
             promises.push(this.readModuleData(moduleId));
         }
         
         try {
+            console.log(`[BATCH-${batchId}] ${promises.length}개 모듈 병렬 읽기 시작`);
             const results = await Promise.all(promises);
+            const duration = Date.now() - startTime;
+            
+            console.log(`[BATCH-${batchId}] 모든 모듈 읽기 완료 - 소요시간: ${duration}ms`);
+            
             const moduleData = {};
             
             // 결과를 모듈별로 정리
             results.forEach((data, index) => {
                 const moduleId = index + startModuleId -38; // 39부터 시작
                 moduleData[`module${moduleId}`] = data;
+                console.log(`[BATCH-${batchId}] 모듈 ${moduleId} 데이터 정리 완료`);
             });
-            //console.log("moduleData--------------------------------", moduleData);
-
+            
+            console.log(`[BATCH-${batchId}] 모든 모듈 데이터 정리 완료 - 총 소요시간: ${Date.now() - startTime}ms`);
+            
+            // 통계 업데이트
+            this.updateStats(true);
+            
             return moduleData;
+            
         } catch (error) {
-            console.error('모든 모듈 데이터 읽기 실패:', error.message);
-            throw error;
+            const duration = Date.now() - startTime;
+            console.error(`[BATCH-${batchId}] 모든 모듈 데이터 읽기 실패 - 소요시간: ${duration}ms, 에러: ${error.message}`);
+            
+            // 부분적 실패 처리 - 성공한 모듈들만 반환
+            console.log(`[BATCH-${batchId}] 부분적 실패 처리 시도`);
+            const partialResults = [];
+            const moduleData = {};
+            
+            for (let i = 0; i < promises.length; i++) {
+                try {
+                    const result = await promises[i];
+                    const moduleId = i + startModuleId - 38;
+                    moduleData[`module${moduleId}`] = result;
+                    console.log(`[BATCH-${batchId}] 모듈 ${moduleId} 부분 성공`);
+                } catch (moduleError) {
+                    const moduleId = i + startModuleId - 38;
+                    console.error(`[BATCH-${batchId}] 모듈 ${moduleId} 부분 실패: ${moduleError.message}`);
+                }
+            }
+            
+            if (Object.keys(moduleData).length > 0) {
+                console.log(`[BATCH-${batchId}] 부분적 데이터 반환 - 성공한 모듈: ${Object.keys(moduleData).length}개`);
+                // 부분적 성공으로 간주
+                this.updateStats(true);
+                return moduleData;
+            } else {
+                // 완전 실패
+                this.updateStats(false);
+                throw error;
+            }
         }
     }
 
@@ -281,29 +337,59 @@ class BatteryModbusReader {
      * @returns {Promise<Object>} 파싱된 PackInfo 데이터
      */
     async readPackDataAll(moduleId) {
+        const sessionId = Math.random().toString(36).substring(2, 11);
+        const startTime = Date.now();
+        
+        console.log(`[SESSION-${sessionId}] 모듈 ${moduleId} PackInfo 읽기 세션 시작`);
+        
         // 시뮬레이션 모드인 경우 가짜 데이터 반환
         if (this.simulationMode) {
+            console.log(`[SESSION-${sessionId}] 시뮬레이션 모드 - 가짜 데이터 반환`);
             return this.generateSimulatedPackInfo(moduleId);
         }
 
-        try {
-            const mapping = this.registerMappings.packInfo;
-            console.log(`[Modbus] 모듈 ${moduleId} PackInfo 읽기 시작 - 주소: ${mapping.startAddress}, 개수: ${mapping.count}`);
-            
-            const result = await this.modbusClient.readInputRegister(
-                moduleId,
-                mapping.startAddress, 
-                mapping.count
-            );
-            
-            console.log(`[Modbus] 모듈 ${moduleId} PackInfo 읽기 완료 - 데이터 개수: ${result.data.length}`);
-            
-            // 51개 레지스터 데이터를 파싱
-            return this.parsePackInfoData(result.data);
-        } catch (error) {
-            console.error(`모듈 ${moduleId} PackInfo 읽기 실패:`, error.message);
-            // 실패 시 기본값 반환
-            return this.generateResetPackInfo(moduleId);
+        let retryCount = 0;
+        const maxRetries = 3;
+        
+        while (retryCount <= maxRetries) {
+            try {
+                const mapping = this.registerMappings.packInfo;
+                console.log(`[SESSION-${sessionId}] 모듈 ${moduleId} PackInfo 읽기 시도 ${retryCount + 1}/${maxRetries + 1} - 주소: 0x${mapping.startAddress.toString(16)}, 개수: ${mapping.count}`);
+                
+                const result = await this.modbusClient.readInputRegister(
+                    moduleId,
+                    mapping.startAddress, 
+                    mapping.count
+                );
+                
+                const duration = Date.now() - startTime;
+                console.log(`[SESSION-${sessionId}] 모듈 ${moduleId} PackInfo 읽기 성공 - 소요시간: ${duration}ms, 데이터 개수: ${result.data ? result.data.length : 0}`);
+                
+                // 데이터 유효성 검사
+                if (!result || !result.data || result.data.length !== mapping.count) {
+                    throw new Error(`데이터 길이 불일치 - 예상: ${mapping.count}, 실제: ${result.data ? result.data.length : 0}`);
+                }
+                
+                // 51개 레지스터 데이터를 파싱
+                const parsedData = this.parsePackInfoData(result.data);
+                console.log(`[SESSION-${sessionId}] 모듈 ${moduleId} 데이터 파싱 완료`);
+                
+                return parsedData;
+                
+            } catch (error) {
+                retryCount++;
+                const duration = Date.now() - startTime;
+                console.error(`[SESSION-${sessionId}] 모듈 ${moduleId} PackInfo 읽기 실패 (시도 ${retryCount}/${maxRetries + 1}) - 소요시간: ${duration}ms, 에러: ${error.message}`);
+                
+                if (retryCount <= maxRetries) {
+                    const retryDelay = Math.min(1000 * retryCount, 3000); // 1초, 2초, 3초 대기
+                    console.log(`[SESSION-${sessionId}] ${retryDelay}ms 후 재시도...`);
+                    await new Promise(resolve => setTimeout(resolve, retryDelay));
+                } else {
+                    console.error(`[SESSION-${sessionId}] 모듈 ${moduleId} 최대 재시도 횟수 초과 - 기본값 반환`);
+                    return this.generateResetPackInfo(moduleId);
+                }
+            }
         }
     }
 
@@ -679,6 +765,70 @@ class BatteryModbusReader {
                 console.error(`모듈 ${moduleId} 셀 전압 읽기 실패:`, error.message);
             }
         }, intervalMs);
+    }
+
+    /**
+     * 통계 업데이트
+     */
+    updateStats(success) {
+        this.stats.totalReads++;
+        this.stats.lastReadTime = new Date();
+        
+        if (success) {
+            this.stats.successfulReads++;
+            this.stats.lastSuccessTime = new Date();
+            this.stats.consecutiveFailures = 0;
+        } else {
+            this.stats.failedReads++;
+            this.stats.lastFailureTime = new Date();
+            this.stats.consecutiveFailures++;
+            this.stats.maxConsecutiveFailures = Math.max(this.stats.maxConsecutiveFailures, this.stats.consecutiveFailures);
+        }
+    }
+
+    /**
+     * 통계 조회
+     */
+    getStats() {
+        const successRate = this.stats.totalReads > 0 
+            ? (this.stats.successfulReads / this.stats.totalReads * 100).toFixed(2)
+            : 0;
+
+        return {
+            ...this.stats,
+            successRate: `${successRate}%`
+        };
+    }
+
+    /**
+     * 통계 모니터링 시작
+     */
+    startStatsMonitoring() {
+        // 5분마다 통계 출력
+        setInterval(() => {
+            const stats = this.getStats();
+            const memUsage = process.memoryUsage();
+            
+            console.log(`[BATTERY-STATS] 배터리 데이터 읽기 통계:`);
+            console.log(`  총 읽기: ${stats.totalReads}, 성공: ${stats.successfulReads}, 실패: ${stats.failedReads}`);
+            console.log(`  성공률: ${stats.successRate}, 연속 실패: ${stats.consecutiveFailures}, 최대 연속 실패: ${stats.maxConsecutiveFailures}`);
+            console.log(`  마지막 성공: ${stats.lastSuccessTime ? stats.lastSuccessTime.toISOString() : '없음'}`);
+            console.log(`  마지막 실패: ${stats.lastFailureTime ? stats.lastFailureTime.toISOString() : '없음'}`);
+            console.log(`  메모리 사용량: RSS=${Math.round(memUsage.rss/1024/1024)}MB, Heap=${Math.round(memUsage.heapUsed/1024/1024)}MB`);
+            
+            // 연속 실패 경고
+            if (stats.consecutiveFailures >= 5) {
+                console.warn(`[BATTERY-STATS] 경고: ${stats.consecutiveFailures}회 연속 실패 - 통신 상태 확인 필요`);
+            }
+            
+            // 장시간 실패 경고
+            if (stats.lastFailureTime && stats.lastSuccessTime) {
+                const timeSinceLastSuccess = Date.now() - stats.lastSuccessTime.getTime();
+                if (timeSinceLastSuccess > 60000) { // 1분 이상
+                    console.warn(`[BATTERY-STATS] 경고: 1분 이상 성공한 읽기가 없음 - 연결 상태 확인 필요`);
+                }
+            }
+        }, 300000); // 5분마다
     }
 }
 
