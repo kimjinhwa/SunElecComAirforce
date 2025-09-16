@@ -7,6 +7,15 @@ const startModuleId = 39;
 const installedModuleCount = 1;
 class BatteryModbusReader {
     constructor(modbusClient) {
+        this.multi_data= {
+            timestamp: new Date(),
+            devices: {},
+            summary: { 
+                total: installedModuleCount,
+                success: 0, 
+                failed: 0 
+            },
+        };
         this.modbusClient = modbusClient;
         this.registerMappings = this.initializeRegisterMappings();
         this.isReading = false;
@@ -220,6 +229,10 @@ class BatteryModbusReader {
         
         // 모듈 39-46에 대한 데이터 읽기 Promise 생성
         for (let moduleId = startModuleId; moduleId < startModuleId + installedModuleCount; moduleId++) {
+
+            console.log(`[BATCH-${batchId}] 모듈 ${moduleId} 읽기 Promise 생성`);
+            promises.push(this.readModuleData(moduleId));
+            // 배열을 테스트하기 위해 한번 더 해 보자
             console.log(`[BATCH-${batchId}] 모듈 ${moduleId} 읽기 Promise 생성`);
             promises.push(this.readModuleData(moduleId));
         }
@@ -238,8 +251,17 @@ class BatteryModbusReader {
                 const moduleId = index + startModuleId -38; // 39부터 시작
                 moduleData[`module${moduleId}`] = data;
                 console.log(`[BATCH-${batchId}] 모듈 ${moduleId} 데이터 정리 완료`);
+                this.multi_data.summary.total = installedModuleCount;
             });
-            
+            this.multi_data.summary.success = 0;
+            results.forEach((data, index) => {
+                data.result.status = 'success';
+                const moduleId = index + startModuleId -38; // 39부터 시작
+                this.multi_data.timestamp = data.timestamp;
+                this.multi_data.devices[`${moduleId}`] = data.result;
+                this.multi_data.summary.success++;
+            });
+            console.log("moduleData-------------->", this.multi_data);
             console.log(`[BATCH-${batchId}] 모든 모듈 데이터 정리 완료 - 총 소요시간: ${Date.now() - startTime}ms`);
             
             // 통계 업데이트
@@ -291,7 +313,8 @@ class BatteryModbusReader {
             // Modbus ID 설정 (모듈 ID와 동일)
             this.modbusClient.setID(moduleId);
             
-            const packData = await this.readPackDataAll(moduleId);
+            const packData= await this.readPackDataInputRegister(moduleId);
+            //여기에서 이미 modbusResultData에 데이터가 추가되어 있음
 
             return {
                 cellVoltages: packData.cellVoltages || [], // 셀 전압 배열
@@ -323,7 +346,8 @@ class BatteryModbusReader {
                     faultStatus: packData.FaultStatus
                 },
                 parameters: {}, // 추후 구현
-                timestamp: new Date().toISOString()
+                timestamp: new Date().toISOString(),
+                result: packData.result
             };
         } catch (error) {
             console.error(`모듈 ${moduleId} 데이터 읽기 실패:`, error.message);
@@ -336,7 +360,7 @@ class BatteryModbusReader {
      * @param {number} moduleId - 모듈 ID (39-46)
      * @returns {Promise<Object>} 파싱된 PackInfo 데이터
      */
-    async readPackDataAll(moduleId) {
+    async readPackDataInputRegister(moduleId) {
         const sessionId = Math.random().toString(36).substring(2, 11);
         const startTime = Date.now();
         
@@ -369,9 +393,9 @@ class BatteryModbusReader {
                 if (!result || !result.data || result.data.length !== mapping.count) {
                     throw new Error(`데이터 길이 불일치 - 예상: ${mapping.count}, 실제: ${result.data ? result.data.length : 0}`);
                 }
-                
+                // 
                 // 51개 레지스터 데이터를 파싱
-                const parsedData = this.parsePackInfoData(result.data);
+                const parsedData = this.parsePackInfoData(result);
                 console.log(`[SESSION-${sessionId}] 모듈 ${moduleId} 데이터 파싱 완료`);
                 
                 return parsedData;
@@ -500,7 +524,8 @@ class BatteryModbusReader {
      * @param {Array} data - 51개 레지스터 데이터
      * @returns {Object} 파싱된 PackInfo 데이터
      */
-    parsePackInfoData(data) {
+    parsePackInfoData(result) {
+        const data = result.data;
         if (!data || data.length < 51) {
             console.warn('[Modbus] PackInfo 데이터가 부족합니다. 시뮬레이션 데이터를 사용합니다.');
             return this.generateSimulatedPackInfo(39); // 기본 모듈 ID
@@ -527,7 +552,8 @@ class BatteryModbusReader {
             FullCapacity: data[47],
             RemainChargeTime: data[48],
             RemainDischargeTime: data[49],
-            CellUVState: data[50]
+            CellUVState: data[50],
+            result: result
         };
     }
 
@@ -749,7 +775,7 @@ class BatteryModbusReader {
         console.log(`모듈 ${moduleId} 셀 전압 주기적 읽기 시작 (${intervalMs}ms 간격)`);
 
         // 즉시 한 번 실행
-        this.readPackDataAll(moduleId).then(data => {
+        this.readPackDataInputRegister(moduleId).then(data => {
             console.log(`모듈 ${moduleId} 셀 전압:`, data);
         }).catch(error => {
             console.error(`모듈 ${moduleId} 초기 셀 전압 읽기 실패:`, error.message);
@@ -758,7 +784,7 @@ class BatteryModbusReader {
         // 주기적 실행
         this.readInterval = setInterval(async () => {
             try {
-                const data = await this.readPackDataAll(moduleId);
+                const data = await this.readPackDataInputRegister(moduleId);
                 console.log(`[${new Date().toISOString()}] 모듈 ${moduleId} 셀 전압:`, data);
 
             } catch (error) {

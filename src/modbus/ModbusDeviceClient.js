@@ -60,26 +60,51 @@ class ModbusDeviceClient
     }
     async readHoldingRegister(moduleId, address, length) {
         await this.acquireLock(moduleId);
-        return this.modbusRTU.readHoldingRegisters(address, length);
+        try {
+            return this.modbusRTU.readHoldingRegisters(address, length);
+        } finally {
+            this.releaseLock();
+        }
     }
     async writeRegister(moduleId, address, value) {
         await this.acquireLock(moduleId);
-        return this.modbusRTU.writeRegister(address, value);
+        try {
+            return this.modbusRTU.writeRegister(address, value);
+        } finally {
+            this.releaseLock();
+        }
     }
     async readCoil(moduleId, address, length) {
         await this.acquireLock(moduleId);
-        return this.modbusRTU.readCoils(address, length);
+        try {
+            return this.modbusRTU.readCoils(address, length);
+        } finally {
+            this.releaseLock();
+        }
     }
     async writeCoil(moduleId, address, value) {
         await this.acquireLock(moduleId);
-        return this.modbusRTU.writeCoil(address, value);
+        try {
+            return this.modbusRTU.writeCoil(address, value);
+        } finally {
+            this.releaseLock();
+        }
     }
     async readDiscreteInput(moduleId, address, length) {
         await this.acquireLock(moduleId);
-        return this.modbusRTU.readDiscreteInputs(address, length);
+        try {
+            return this.modbusRTU.readDiscreteInputs(address, length);
+        } finally {
+            this.releaseLock();
+        }
     }
     async writeDiscreteInput(moduleId, address, value) {
-        return this.modbusRTU.writeDiscreteInput(address, value);
+        await this.acquireLock(moduleId);
+        try {
+            return this.modbusRTU.writeDiscreteInput(address, value);
+        } finally {
+            this.releaseLock();
+        }
     }
 
     // 입력 레지스터 읽기
@@ -234,7 +259,11 @@ Byte1
     }
     async writeInputRegister(moduleId, address, value) {
         await this.acquireLock(moduleId);
-        return this.modbusRTU.writeInputRegister(address, value);
+        try {
+            return this.modbusRTU.writeInputRegister(address, value);
+        } finally {
+            this.releaseLock();
+        }
     }
     setID(moduleId) {
         this.modbusRTU.setID(moduleId);

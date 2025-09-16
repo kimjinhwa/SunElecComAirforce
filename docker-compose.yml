@@ -1,0 +1,35 @@
+version: '3.8'
+services:
+  simulator:
+    build: 
+      context: /home/pi/poscobms/simulator
+    volumes:
+      - /home/pi/poscobms/simulator:/src
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+    image: simulator:latest
+    devices:
+      # - /dev/ttyUSB0:/dev/ttyUSB0
+      - /dev:/dev
+    privileged: true
+    group_add:
+      - dialout
+    container_name: battery_simulator
+    working_dir: /src
+    command: npm start
+    networks:
+      - posco-network
+    environment:
+      - DATABASE_URL=postgresql://ServerManager:1234@battery_db:5432/BatteryManagement
+    # ports:
+    #   - "3000:3000"
+    depends_on:
+      - db
+    restart: always
+networks:
+  posco-network:
+    name: posco-network
+    driver: bridge
+
+volumes:
+  postgres_data:

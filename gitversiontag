@@ -1,0 +1,32 @@
+#!/bin/bash
+
+# Read first line of Version.h with UTF-8 encoding
+content=$(head -n 1 Version.h)
+
+# Use grep with regex to extract version and comment
+if echo "$content" | grep -q '#define version ".*".*//.*'; then
+    # Extract version between quotes
+    version=$(echo "$content" | sed -n 's/.*#define version "\([^"]*\)".*/\1/p' | tr -d ' ')
+    
+    # Extract comment after //
+    comment=$(echo "$content" | sed -n 's/.*\/\/\(.*\)/\1/p' )
+    
+    echo "Version: $version"
+    echo "Comment: $comment"
+    
+    # Create and push git tag
+    git add -A
+    git commit -am "$comment"
+
+    # 태그 생성
+    if git rev-parse "$version" >/dev/null 2>&1; then
+        echo "태그가 이미 존해함. "
+        git tag "$version" "$version"^{} -f -m "$comment"
+    else 
+        echo "태그 생성"
+        git tag -a "$version" -m "$comment"
+    fi
+    git push origin main -f --tags
+else
+    echo "Version.h 파일을 찾을 수 없습니다."
+fi

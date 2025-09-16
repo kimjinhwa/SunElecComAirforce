@@ -4,6 +4,7 @@ import Mib2Interfaces from './mib/mib2.interfaces.js';
 import BatteryMib from './mib/battery.mib.js';
 import BatteryModbusReader from './modbus/BatteryModbusReader.js';
 import ModbusDeviceClient from './modbus/ModbusDeviceClient.js';
+import { startApiServer, setBatteryMibInstance } from './apiServer.js';
 
 const port = Number(process.env.SNMP_AGENT_PORT ?? 161);
 const address = process.env.SNMP_AGENT_ADDR ?? '0.0.0.0';
@@ -104,6 +105,10 @@ modbusDeviceClient.connect().then(() => {
     // BatteryMib에 ModbusReader 설정 및 데이터 업데이트 시작
     batteryMib.setModbusReader(modbusDeviceClient);
     
+    // API 서버에 BatteryMib 인스턴스 설정
+    setBatteryMibInstance(batteryMib);
+    
+    startApiServer();
     // 2초 후 주기적 데이터 업데이트 시작
     setTimeout(() => {
         console.log('\n=== 주기적 배터리 데이터 읽기 및 SNMP 업데이트 시작 ===');

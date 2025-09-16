@@ -423,17 +423,17 @@ class BatteryMib {
      * @param {Object} moduleData - Modbus에서 읽은 모듈 데이터
      */
     updateModuleSnmpValues(moduleId, moduleData) {
-        console.log("updateModuleSnmpValues------------------------------>", moduleId, moduleData);
+        //console.log("updateModuleSnmpValues------------------------------>", moduleId, moduleData.cellVoltages);
         try {
             console.log(`[Battery MIB] Updating module ${moduleId} SNMP values`);
             
             // 셀 전압 업데이트
-            console.log("moduleData.cellVoltages", moduleData.cellVoltages);
+            //console.log("moduleData.cellVoltages", moduleData.cellVoltages);
             if (moduleData.cellVoltages && Array.isArray(moduleData.cellVoltages)) {
                 for (let cellIndex = 1; cellIndex <= 16; cellIndex++) {
                     const providerName = `mod${moduleId}Cell${cellIndex}Voltage`;
                     const value = moduleData.cellVoltages[cellIndex - 1] || 0;
-                    console.log("providerName", providerName, value);
+                    //console.log("providerName", providerName, value);
                     this.mib.setScalarValue(providerName, value);
                 }
             } else {
