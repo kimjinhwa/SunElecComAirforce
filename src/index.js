@@ -2,15 +2,15 @@ import snmp from 'net-snmp';
 import Mib2System from './mib/mib2.system.js';
 import Mib2Interfaces from './mib/mib2.interfaces.js';
 import BatteryMib from './mib/battery.mib.js';
+import { dataBaseConnect } from './dataBaseConnect.js';
+// nodemon 테스트 주석 - 수정됨
 import BatteryModbusReader from './modbus/BatteryModbusReader.js';
 import ModbusDeviceClient from './modbus/ModbusDeviceClient.js';
 import { startApiServer, setBatteryMibInstance } from './apiServer.js';
-
-const port = Number(process.env.SNMP_AGENT_PORT ?? 161);
+const port = Number(process.env.SNMP_AGENT_PORT ?? 1161);
 const address = process.env.SNMP_AGENT_ADDR ?? '0.0.0.0';
 const readCommunity = process.env.SNMP_READ_COMMUNITY ?? 'public';
 const writeCommunity = process.env.SNMP_WRITE_COMMUNITY ?? 'private';
-
 
 const agentOptions = {
   port,
@@ -18,17 +18,16 @@ const agentOptions = {
   accessControlModelType: snmp.AccessControlModelType.Simple
 };
 
+//   
 const agent = snmp.createAgent(agentOptions, (error, data) => {
   if (error) {
     console.error('Agent error:', error.message || error);
     return;
   }
-  
   const pduType = data && data.pdu && data.pdu.type;
   const varbinds = (data && data.pdu && data.pdu.varbinds) || [];
   
   console.log(`[SNMP REQUEST] type=${pduType}, varbinds=${varbinds.length}`);
-  
   // Log each varbind request
   varbinds.forEach((vb, index) => {
     console.log(`  [${index}] OID: ${vb.oid}, Type: ${vb.type}`);
@@ -97,7 +96,12 @@ console.log(`  System: snmpget -v2c -c ${readCommunity} 127.0.0.1:${port} 1.3.6.
 console.log(`  Battery: snmpget -v2c -c ${readCommunity} 127.0.0.1:${port} 1.3.6.1.4.1.64016.1.1.1.1`);
 console.log(`  Write: snmpset -v2c -c ${writeCommunity} 127.0.0.1:${port} 1.3.6.1.4.1.64016.1.4.1.0 u 4250`);
 
+// 데이터베이스 초기화
+await dataBaseConnect.initialize();
+
 const modbusDeviceClient = new ModbusDeviceClient();
+const rackData = await dataBaseConnect.getRackData();
+console.log("rackData-------------->", rackData);
 modbusDeviceClient.connect().then(() => {
     console.log('Modbus 연결 완료');
     modbusDeviceClient.setID(39);
@@ -110,10 +114,10 @@ modbusDeviceClient.connect().then(() => {
     
     startApiServer();
     // 2초 후 주기적 데이터 업데이트 시작
-    setTimeout(() => {
-        console.log('\n=== 주기적 배터리 데이터 읽기 및 SNMP 업데이트 시작 ===');
-        batteryMib.startDataUpdate();
-    }, 2000);
+    // setTimeout(() => {
+    //     console.log('\n=== 주기적 배터리 데이터 읽기 및 SNMP 업데이트 시작 ===');
+    //     batteryMib.startDataUpdate();
+    // }, 2000);
 });
 
 process.on('SIGINT', () => {

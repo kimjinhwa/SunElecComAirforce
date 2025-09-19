@@ -1,35 +1,102 @@
-version: '3.8'
 services:
-  simulator:
+  airforce:
     build: 
-      context: /home/pi/poscobms/simulator
+      context: /home/pi/bmsSnmp
+    image: airforcebms:latest
+    ports:
+      - "502:502"
+      - "161:161/udp"
+      - "1161:1161/udp"
+      - "162:162/udp"
+      - "4000:4000"
     volumes:
-      - /home/pi/poscobms/simulator:/src
+      - /dev:/dev
       - /etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro
-    image: simulator:latest
+      - ./src:/src/src
     devices:
-      # - /dev/ttyUSB0:/dev/ttyUSB0
       - /dev:/dev
     privileged: true
     group_add:
       - dialout
-    container_name: battery_simulator
-    working_dir: /src
-    command: npm start
-    networks:
-      - posco-network
+    # networks:
+    #   - posco-network
     environment:
       - DATABASE_URL=postgresql://ServerManager:1234@battery_db:5432/BatteryManagement
-    # ports:
-    #   - "3000:3000"
-    depends_on:
-      - db
-    restart: always
-networks:
-  posco-network:
-    name: posco-network
-    driver: bridge
+      - SNMP_AGENT_PORT=161
+      - SNMP_AGENT_ADDR=0.0.0.0
+      - LOG_LEVEL=5
+    # depends_on:
+    #   - db
+    container_name: airforcebms
+    restart: unless-stopped
 
-volumes:
-  postgres_data:
+#   web:
+#     logging:
+#       options:
+#         max-size: "10m"
+#         max-file: "3"
+#     build: 
+#       context: .
+#       target: development
+#     volumes:
+#       - /etc/timezone:/etc/timezone:ro
+#       - /etc/localtime:/etc/localtime:ro
+#       - .:/app
+#       - /app/node_modules
+#     image: poscobatteryweb:latest
+#     container_name: battery_web
+#     working_dir: /app 
+#     command: pnpm dev -H 0.0.0.0 
+#     #command: bash -c "pnpm run build && pnpm start"
+#     # 
+#     # command: bash -c "pnpm start"
+#     networks:
+#       - posco-network
+#     ports:
+#       - "3000:3000"
+#     environment:
+#       - AUTH_TRUST_HOST=true
+#       # - NEXTAUTH_URL=http://rpidev4:3000
+#       - TZ=Asia/Seoul
+#       - NODE_ENV=development
+#       - AUTH_SECRET="2niv0PNY/klJkmPKsDBBbA+g95g9Yjst+0dtDk/Ham0="
+#       - DATABASE_URL=postgresql://ServerManager:1234@battery_db:5432/BatteryManagement
+#       - HOST_IP=localhost
+#     depends_on:
+#       - db
+#     restart: always
+#     deploy:
+#       resources:
+#         limits:
+#           memory: 1G
+#   db:
+#     logging:
+#       options:
+#         max-size: "10m"
+#         max-file: "3"
+#     image: postgres:17
+#     container_name: battery_db
+#     ports:
+#       - "5432:5432"
+#     environment:
+#       POSTGRES_USER: ServerManager
+#       POSTGRES_PASSWORD: 1234
+#       POSTGRES_DB: BatteryManagement 
+#     volumes:
+#       - postgres_data:/var/lib/postgresql/data
+#     networks:
+#       - posco-network
+#     restart: always
+#     deploy:
+#       resources:
+#         limits:
+#           memory: 1G
+
+# networks:
+#   posco-network:
+#     name: posco-network
+#     driver: bridge
+
+# volumes:
+#   postgres_data:

@@ -6,9 +6,9 @@ import cors from 'cors';
 
 const app = express();
 const port = process.env.API_PORT || 4000;
-
 // BatteryMib 인스턴스를 저장할 변수
 let batteryMibInstance = null;
+
 
 // CORS 설정
 app.use(cors());

@@ -6,6 +6,19 @@
 import snmp from 'net-snmp';
 import { BatterySystemData } from '../models/BatteryData.js';
 import BatteryModbusReader from '../modbus/BatteryModbusReader.js';
+import { dataBaseConnect } from '../dataBaseConnect.js';
+const disChargeTypes= {
+    FLOATING_CHARGE:1,
+    CHARGE_START:2,
+    CHARGE_IN_PROGRESS:3,
+    CHARGE_COMPLETE:4,
+    DISCHARGE_START:5,
+    DISCHARGE_IN_PROGRESS:6,
+    DISCHARGE_COMPLETE:7,
+}
+const startDischargeCurrent = -8.0; // 방전 시작 전류
+const endDischargeCurrent = -4.0; // 방전 종료 전류
+const startChargeCurrent = 4.0; // 충전 시작 전류
 
 class BatteryMib {
     constructor(agent, mib) {
@@ -13,12 +26,12 @@ class BatteryMib {
         this.mib = mib;
         this.batterySystem = new BatterySystemData();
         this.modbusReader = null; // 실제 Modbus 클라이언트가 연결되면 설정
-        
+        this.disChargeStatus = disChargeTypes.FLOATING_CHARGE;
         // 8개 모듈 초기화
         for (let i = 1; i <= 8; i++) {
             this.batterySystem.addModule(i);
         }
-        
+        this.chargeCurrent = 0;        
         this.initializeOids();
         this.startDataUpdate();
     }
@@ -199,8 +212,8 @@ class BatteryMib {
         // 실제 환경에서는 Modbus를 통해 데이터를 읽어옴
         // 여기서는 시뮬레이션 데이터로 업데이트
         //this.updateSimulatedData();
-         this.updateFromModbus();
-        
+
+        // this.updateFromModbus();
         // 5초마다 데이터 업데이트
         setInterval(() => {
             console.log("startDataUpdate at every 5 seconds");
@@ -352,13 +365,46 @@ class BatteryMib {
                 console.log(`[Battery MIB] Updating SNMP values for Modbus module ${modbusModuleId} -> SNMP module ${snmpModuleId}`);
                 this.updateModuleSnmpValues(snmpModuleId, data);
             }
-            
+            await this.checkDisChargeStatus(moduleData);
+            dataBaseConnect.logBatteryData(moduleData, this.disChargeStatus);
             console.log('[Battery MIB] SNMP values updated from Modbus');
         } catch (error) {
             console.error('[Battery MIB] Modbus update failed:', error.message);
         }
     }
-
+    async checkDisChargeStatus(moduleData) {
+        console.log("moduleData-------------->", moduleData);
+        console.log("checkDisChargeStatus-------------->", moduleData.module1.packInfo.CurrentValue);
+        this.chargeCurrent = (moduleData.module1.packInfo.CurrentValue-10000)*0.1;
+        if(this.chargeCurrent < startDischargeCurrent) {
+            // 방전 전류이고, 현재 상태가 부동충전이면 방전시작 
+            if(this.disChargeStatus === disChargeTypes.FLOATING_CHARGE ||
+                this.disChargeStatus === disChargeTypes.CHARGE_START ||
+                this.disChargeStatus === disChargeTypes.CHARGE_IN_PROGRESS
+            ) {
+                this.disChargeStatus = disChargeTypes.DISCHARGE_START;
+            }
+            // 방전 전류이고, 현재 상태가 방전시작이면 방전중
+            if(this.disChargeStatus === disChargeTypes.DISCHARGE_START) {
+                this.disChargeStatus = disChargeTypes.DISCHARGE_IN_PROGRESS;
+            }
+            // 방전 전류이고, 현재 상태가 방전중이면 방전중
+            if(this.disChargeStatus === disChargeTypes.DISCHARGE_IN_PROGRESS) {
+                this.disChargeStatus = disChargeTypes.DISCHARGE_IN_PROGRESS;
+            }
+        } else if(this.chargeCurrent > endDischargeCurrent ){
+            if(this.disChargeStatus === disChargeTypes.DISCHARGE_IN_PROGRESS) {
+                this.disChargeStatus = disChargeTypes.DISCHARGE_COMPLETE;
+            }
+            else if(this.disChargeStatus === disChargeTypes.DISCHARGE_COMPLETE) {
+                this.disChargeStatus = disChargeTypes.FLOATING_CHARGE;
+            }
+            else {
+                this.disChargeStatus = disChargeTypes.FLOATING_CHARGE;
+            }
+        } 
+        console.log("checkDisChargeStatus-------------->", this.disChargeStatus);
+    }
     /**
      * 사용 가능한 OID 목록 반환
      */
