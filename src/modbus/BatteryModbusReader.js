@@ -4,18 +4,22 @@
  */
 
 const startModuleId = 39;
-const installedModuleCount = 1;
+let installedModuleCount = 1;
 class BatteryModbusReader {
-    constructor(modbusClient) {
+    constructor(modbusClient,moduleCount) {
         this.multi_data= {
             timestamp: new Date(),
             devices: {},
             summary: { 
-                total: installedModuleCount,
+                total: moduleCount,
                 success: 0, 
                 failed: 0 
             },
         };
+        installedModuleCount = moduleCount;
+
+        console.log("moduleCount-------------->", moduleCount);
+
         this.modbusClient = modbusClient;
         this.registerMappings = this.initializeRegisterMappings();
         this.isReading = false;
@@ -234,7 +238,7 @@ class BatteryModbusReader {
             promises.push(this.readModuleData(moduleId));
             // 배열을 테스트하기 위해 한번 더 해 보자
             //console.log(`[BATCH-${batchId}] 모듈 ${moduleId} 읽기 Promise 생성`);
-            promises.push(this.readModuleData(moduleId));
+            //promises.push(this.readModuleData(moduleId));
         }
         
         try {

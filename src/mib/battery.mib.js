@@ -337,8 +337,11 @@ class BatteryMib {
      * Modbus 리더 설정
      * @param {Object} modbusClient - Modbus 클라이언트
      */
-    setModbusReader(modbusClient) {
-        this.modbusReader = new BatteryModbusReader(modbusClient);
+    async setModbusReader(modbusClient) {
+        const rackData = await dataBaseConnect.getRackData();
+            this.moduleCount = rackData[0].installedmodule;
+            console.log("rackData[0]-------------->", rackData[0],this.moduleCount);
+        this.modbusReader = new BatteryModbusReader(modbusClient,this.moduleCount);
     }
 
     /**

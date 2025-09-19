@@ -104,7 +104,6 @@ await dataBaseConnect.initialize();
 
 const modbusDeviceClient = new ModbusDeviceClient();
 const rackData = await dataBaseConnect.getRackData();
-loggerWinston.info("rackData-------------->", rackData);
 modbusDeviceClient.connect().then(() => {
     console.log('Modbus 연결 완료');
     modbusDeviceClient.setID(39);
