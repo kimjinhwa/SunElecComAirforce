@@ -25,7 +25,6 @@ services:
       - DATABASE_URL=postgresql://ServerManager:1234@battery_db:5432/BatteryManagement
       - SNMP_AGENT_PORT=161
       - SNMP_AGENT_ADDR=0.0.0.0
-      - LOG_LEVEL=5
     # depends_on:
     #   - db
     container_name: airforcebms

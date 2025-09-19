@@ -87,13 +87,13 @@ app.get('/api/battery', (req, res) => {
     }
     
     const batteryData = batteryMibInstance.modbusReader.multi_data;
-    console.log("batteryMibInstance-------------->", batteryData);
+    //console.log("batteryMibInstance-------------->", batteryData);
     
     // 데이터 유효성 검사
-    if (batteryData) {
-      console.log("batteryData.devices-------------->", batteryData.devices);
-      console.log("batteryData.summary-------------->", batteryData.summary);
-    }
+    // if (batteryData) {
+    //   console.log("batteryData.devices-------------->", batteryData.devices);
+    //   console.log("batteryData.summary-------------->", batteryData.summary);
+    // }
     
     if (!batteryData || !batteryData.devices || batteryData.summary?.success == 0 ) 
     {

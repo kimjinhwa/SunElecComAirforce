@@ -7,6 +7,7 @@ import snmp from 'net-snmp';
 import { BatterySystemData } from '../models/BatteryData.js';
 import BatteryModbusReader from '../modbus/BatteryModbusReader.js';
 import { dataBaseConnect } from '../dataBaseConnect.js';
+import loggerWinston from '../loggerWinston.js';
 const disChargeTypes= {
     FLOATING_CHARGE:1,
     CHARGE_START:2,
@@ -101,8 +102,6 @@ class BatteryMib {
             const isTemperature = name === 'avgTemp' || name === 'ambTemp';
             const isCurrent = name === 'chargeCurrent' || name === 'dischargeCurrent';
             const scalarType = (isTemperature || isCurrent) ? snmp.ObjectType.Integer32 : snmp.ObjectType.Unsigned32;
-            
-            console.log(`[Battery MIB] Registering Provider: ${providerName} with OID: ${oid} (${(isTemperature || isCurrent) ? 'Integer32' : 'Unsigned32'})`);
             
             this.agent.registerProvider({
                 name: providerName,
@@ -216,7 +215,7 @@ class BatteryMib {
         // this.updateFromModbus();
         // 5초마다 데이터 업데이트
         setInterval(() => {
-            console.log("startDataUpdate at every 5 seconds");
+            loggerWinston.info("startDataUpdate at every 5 seconds");
             //this.updateSimulatedData();
             this.updateFromModbus();
         }, 5000);
@@ -352,9 +351,7 @@ class BatteryMib {
         }
 
         try {
-            console.log('[Battery MIB] Reading Modbus data...');
             const moduleData = await this.modbusReader.readAllModulesData();
-            //nsole.log("moduleData", moduleData);
             
             // 각 모듈의 데이터를 SNMP OID에 매핑
             for (const [moduleKey, data] of Object.entries(moduleData)) {
@@ -362,19 +359,18 @@ class BatteryMib {
                 const modbusModuleId = parseInt(moduleKey.replace('module', ''));
                 // Modbus ID 39-46을 SNMP 모듈 ID 1-8로 변환 
                 const snmpModuleId = modbusModuleId ; // 39 -> 1, 40 -> 2, ...
-                console.log(`[Battery MIB] Updating SNMP values for Modbus module ${modbusModuleId} -> SNMP module ${snmpModuleId}`);
                 this.updateModuleSnmpValues(snmpModuleId, data);
             }
             await this.checkDisChargeStatus(moduleData);
             dataBaseConnect.logBatteryData(moduleData, this.disChargeStatus);
-            console.log('[Battery MIB] SNMP values updated from Modbus');
+            loggerWinston.info('[Battery MIB] SNMP values updated from Modbus');
         } catch (error) {
-            console.error('[Battery MIB] Modbus update failed:', error.message);
+            loggerWinston.error('[Battery MIB] Modbus update failed:', error.message);
         }
     }
     async checkDisChargeStatus(moduleData) {
-        console.log("moduleData-------------->", moduleData);
-        console.log("checkDisChargeStatus-------------->", moduleData.module1.packInfo.CurrentValue);
+        // console.log("moduleData-------------->", moduleData);
+        // console.log("checkDisChargeStatus-------------->", moduleData.module1.packInfo.CurrentValue);
         this.chargeCurrent = (moduleData.module1.packInfo.CurrentValue-10000)*0.1;
         if(this.chargeCurrent < startDischargeCurrent) {
             // 방전 전류이고, 현재 상태가 부동충전이면 방전시작 
@@ -403,7 +399,7 @@ class BatteryMib {
                 this.disChargeStatus = disChargeTypes.FLOATING_CHARGE;
             }
         } 
-        console.log("checkDisChargeStatus-------------->", this.disChargeStatus);
+        //console.log("checkDisChargeStatus-------------->", this.disChargeStatus);
     }
     /**
      * 사용 가능한 OID 목록 반환
@@ -471,7 +467,7 @@ class BatteryMib {
     updateModuleSnmpValues(moduleId, moduleData) {
         //console.log("updateModuleSnmpValues------------------------------>", moduleId, moduleData.cellVoltages);
         try {
-            console.log(`[Battery MIB] Updating module ${moduleId} SNMP values`);
+            loggerWinston.info(`[Battery MIB] Updating module ${moduleId} SNMP values`);
             
             // 셀 전압 업데이트
             //console.log("moduleData.cellVoltages", moduleData.cellVoltages);
@@ -483,7 +479,7 @@ class BatteryMib {
                     this.mib.setScalarValue(providerName, value);
                 }
             } else {
-                console.warn(`[Battery MIB] 모듈 ${moduleId} 셀 전압 데이터가 배열이 아닙니다`);
+                loggerWinston.warn(`[Battery MIB] 모듈 ${moduleId} 셀 전압 데이터가 배열이 아닙니다`);
             }
 
             // 팩 정보 업데이트
@@ -575,9 +571,9 @@ class BatteryMib {
                 this.mib.setScalarValue(`mod${moduleId}AlarmpackOvervoltageAlarm`, alarms.faultStatus || 0);
             }
 
-            console.log(`[Battery MIB] 모듈 ${moduleId} SNMP 값 업데이트 완료`);
+            loggerWinston.info(`[Battery MIB] 모듈 ${moduleId} SNMP 값 업데이트 완료`);
         } catch (error) {
-            console.error(`[Battery MIB] 모듈 ${moduleId} SNMP 값 업데이트 실패:`, error.message);
+            loggerWinston.error(`[Battery MIB] 모듈 ${moduleId} SNMP 값 업데이트 실패:`, error.message);
         }
     }
 

@@ -12,7 +12,6 @@ class Logger {
     constructor(){
         dotenv.config();
         this.level = parseInt(process.env.LOG_LEVEL || LogLevel.INFO.toString());
-        console.log('Logger level-------------->', this.level);
     }
     error(message,...args){
         if(this.level >= LogLevel.ERROR){

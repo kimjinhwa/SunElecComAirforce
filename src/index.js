@@ -3,6 +3,7 @@ import Mib2System from './mib/mib2.system.js';
 import Mib2Interfaces from './mib/mib2.interfaces.js';
 import BatteryMib from './mib/battery.mib.js';
 import { dataBaseConnect } from './dataBaseConnect.js';
+import loggerWinston from './loggerWinston.js';
 // nodemon 테스트 주석 - 수정됨
 import BatteryModbusReader from './modbus/BatteryModbusReader.js';
 import ModbusDeviceClient from './modbus/ModbusDeviceClient.js';
@@ -11,6 +12,8 @@ const port = Number(process.env.SNMP_AGENT_PORT ?? 1161);
 const address = process.env.SNMP_AGENT_ADDR ?? '0.0.0.0';
 const readCommunity = process.env.SNMP_READ_COMMUNITY ?? 'public';
 const writeCommunity = process.env.SNMP_WRITE_COMMUNITY ?? 'private';
+
+
 
 const agentOptions = {
   port,
@@ -21,26 +24,26 @@ const agentOptions = {
 //   
 const agent = snmp.createAgent(agentOptions, (error, data) => {
   if (error) {
-    console.error('Agent error:', error.message || error);
+    loggerWinston.error('Agent error:', error.message || error);
     return;
   }
   const pduType = data && data.pdu && data.pdu.type;
   const varbinds = (data && data.pdu && data.pdu.varbinds) || [];
   
-  console.log(`[SNMP REQUEST] type=${pduType}, varbinds=${varbinds.length}`);
+  loggerWinston.info(`[SNMP REQUEST] type=${pduType}, varbinds=${varbinds.length}`);
   // Log each varbind request
   varbinds.forEach((vb, index) => {
-    console.log(`  [${index}] OID: ${vb.oid}, Type: ${vb.type}`);
+    loggerWinston.info(`  [${index}] OID: ${vb.oid}, Type: ${vb.type}`);
   });
   
   // Handle different PDU types
   if (pduType === snmp.PduType.GetRequest || pduType === snmp.PduType.GetNextRequest) {
-    console.log('Processing GET/GETNEXT request...');
+    loggerWinston.info('Processing GET/GETNEXT request...');
   } else if (pduType === snmp.PduType.SetRequest) {
-    console.log('Processing SET request...');
+    loggerWinston.info('Processing SET request...');
     // Handle write requests
     varbinds.forEach((vb, index) => {
-      console.log(`  [${index}] Setting OID: ${vb.oid} = ${vb.value}`);
+      loggerWinston.info(`  [${index}] Setting OID: ${vb.oid} = ${vb.value}`);
       // Try to handle write request in MIB modules
       mib2System.handleWriteRequest(vb.oid, vb.value);
     });
@@ -69,39 +72,39 @@ const batteryMib = new BatteryMib(agent, mib);
 
 // sysUpTime is automatically updated by Mib2System
 
-console.log(`[SNMP Agent] listening on ${address}:${port}`);
-console.log(`  Read Community:  ${readCommunity} (read-only)`);
-console.log(`  Write Community: ${writeCommunity} (read-write)`);
-console.log('\nAvailable OIDs:');
-console.log('System Group:');
-mib2System.getAvailableOids().forEach(oid => console.log(`  ${oid}`));
-console.log('Interfaces Group:');
-mib2Interfaces.getAvailableOids().forEach(oid => console.log(`  ${oid}`));
-console.log('\nBattery System (8 modules):');
-console.log('  Sample OIDs:');
-console.log(`    1.3.6.1.4.1.64016.1.1.1.1  - Module 1 Cell 1 voltage`);
-console.log(`    1.3.6.1.4.1.64016.1.2.10   - Module 1 SOC`);
-console.log(`    1.3.6.1.4.1.64016.1.3.1    - Module 1 Cell overvoltage alarms`);
-console.log(`    1.3.6.1.4.1.64016.8.1.1    - Module 8 Cell 1 voltage`);
-console.log(`    1.3.6.1.4.1.64016.8.2.10   - Module 8 SOC`);
+loggerWinston.info(`[SNMP Agent] listening on ${address}:${port}`);
+loggerWinston.info(`  Read Community:  ${readCommunity} (read-only)`);
+loggerWinston.info(`  Write Community: ${writeCommunity} (read-write)`);
+loggerWinston.info('\nAvailable OIDs:');
+loggerWinston.info('System Group:');
+mib2System.getAvailableOids().forEach(oid => loggerWinston.info(`  ${oid}`));
+loggerWinston.info('Interfaces Group:');
+mib2Interfaces.getAvailableOids().forEach(oid => loggerWinston.info(`  ${oid}`));
+loggerWinston.info('\nBattery System (8 modules):');
+loggerWinston.info('  Sample OIDs:');
+loggerWinston.info(`    1.3.6.1.4.1.64016.1.1.1.1  - Module 1 Cell 1 voltage`);
+loggerWinston.info(`    1.3.6.1.4.1.64016.1.2.10   - Module 1 SOC`);
+loggerWinston.info(`    1.3.6.1.4.1.64016.1.3.1    - Module 1 Cell overvoltage alarms`);
+loggerWinston.info(`    1.3.6.1.4.1.64016.8.1.1    - Module 8 Cell 1 voltage`);
+loggerWinston.info(`    1.3.6.1.4.1.64016.8.2.10   - Module 8 SOC`);
 
-console.log('\nRead-Write OIDs:');
-mib2System.getReadWriteOids().forEach(oid => console.log(`  ${oid.oid} - ${oid.name}`));
-console.log('Battery Parameters (writable):');
-batteryMib.getReadWriteOids().slice(0, 5).forEach(oid => console.log(`  ${oid.oid} - ${oid.name}`));
-console.log('  ... (and more for modules 1-8)');
+loggerWinston.info('\nRead-Write OIDs:');
+mib2System.getReadWriteOids().forEach(oid => loggerWinston.info(`  ${oid.oid} - ${oid.name}`));
+loggerWinston.info('Battery Parameters (writable):');
+batteryMib.getReadWriteOids().slice(0, 5).forEach(oid => loggerWinston.info(`  ${oid.oid} - ${oid.name}`));
+loggerWinston.info('  ... (and more for modules 1-8)');
 
-console.log('\nTry:');
-console.log(`  System: snmpget -v2c -c ${readCommunity} 127.0.0.1:${port} 1.3.6.1.2.1.1.1.0`);
-console.log(`  Battery: snmpget -v2c -c ${readCommunity} 127.0.0.1:${port} 1.3.6.1.4.1.64016.1.1.1.1`);
-console.log(`  Write: snmpset -v2c -c ${writeCommunity} 127.0.0.1:${port} 1.3.6.1.4.1.64016.1.4.1.0 u 4250`);
+loggerWinston.info('\nTry:');
+loggerWinston.info(`  System: snmpget -v2c -c ${readCommunity} 127.0.0.1:${port} 1.3.6.1.2.1.1.1.0`);
+loggerWinston.info(`  Battery: snmpget -v2c -c ${readCommunity} 127.0.0.1:${port} 1.3.6.1.4.1.64016.1.1.1.1`);
+loggerWinston.info(`  Write: snmpset -v2c -c ${writeCommunity} 127.0.0.1:${port} 1.3.6.1.4.1.64016.1.4.1.0 u 4250`);
 
 // 데이터베이스 초기화
 await dataBaseConnect.initialize();
 
 const modbusDeviceClient = new ModbusDeviceClient();
 const rackData = await dataBaseConnect.getRackData();
-console.log("rackData-------------->", rackData);
+loggerWinston.info("rackData-------------->", rackData);
 modbusDeviceClient.connect().then(() => {
     console.log('Modbus 연결 완료');
     modbusDeviceClient.setID(39);
@@ -121,6 +124,6 @@ modbusDeviceClient.connect().then(() => {
 });
 
 process.on('SIGINT', () => {
-  console.log('Shutting down SNMP agent');
+  loggerWinston.info('Shutting down SNMP agent');
   process.exit(0);
 });

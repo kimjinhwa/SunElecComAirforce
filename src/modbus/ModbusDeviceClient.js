@@ -1,6 +1,6 @@
 import ModbusRTU from 'modbus-serial';
 import SerialManager from './serialManager.js';
-
+import loggerWinston from '../loggerWinston.js';
 const serialManager = new SerialManager();
 
 
@@ -215,19 +215,19 @@ Byte1
         const startTime = Date.now();
         const requestId = Math.random().toString(36).substring(2, 11);
         
-        console.log(`[DEBUG-${requestId}] 모듈 ${moduleId} 입력 레지스터 읽기 시작 - 주소: 0x${address.toString(16)}, 길이: ${length}`);
+        //console.log(`[DEBUG-${requestId}] 모듈 ${moduleId} 입력 레지스터 읽기 시작 - 주소: 0x${address.toString(16)}, 길이: ${length}`);
         
         await this.acquireLock(moduleId);
         try {
             this.modbusRTU.setID(moduleId);
             this.modbusRTU.setTimeout(2000); // 타임아웃을 2초로 증가
             
-            console.log(`[DEBUG-${requestId}] Modbus ID 설정 완료: ${moduleId}, 타임아웃: 2000ms`);
+            //console.log(`[DEBUG-${requestId}] Modbus ID 설정 완료: ${moduleId}, 타임아웃: 2000ms`);
             
             const data = await this.modbusRTU.readInputRegisters(address, length);
             const duration = Date.now() - startTime;
             
-            console.log(`[DEBUG-${requestId}] 모듈 ${moduleId} 읽기 성공 - 소요시간: ${duration}ms, 데이터 길이: ${data.data ? data.data.length : 0}`);
+            //console.log(`[DEBUG-${requestId}] 모듈 ${moduleId} 읽기 성공 - 소요시간: ${duration}ms, 데이터 길이: ${data.data ? data.data.length : 0}`);
             
             // 데이터 유효성 검사
             if (!data || !data.data || data.data.length !== length) {
@@ -254,7 +254,7 @@ Byte1
         } finally {
             this.releaseLock();
             const totalDuration = Date.now() - startTime;
-            console.log(`[DEBUG-${requestId}] 모듈 ${moduleId} 락 해제 완료 - 총 소요시간: ${totalDuration}ms`);
+            //console.log(`[DEBUG-${requestId}] 모듈 ${moduleId} 락 해제 완료 - 총 소요시간: ${totalDuration}ms`);
         }
     }
     async writeInputRegister(moduleId, address, value) {
@@ -277,14 +277,14 @@ Byte1
         const lockId = Math.random().toString(36).substring(2, 11);
         const startTime = Date.now();
         
-        console.log(`[LOCK-${lockId}] 모듈 ${moduleId} 락 획득 시도 시작`);
+        //console.log(`[LOCK-${lockId}] 모듈 ${moduleId} 락 획득 시도 시작`);
         
         // 락이 이미 설정되어 있으면 잠시 대기
         let attempts = 0;
         const maxAttempts = 10;
         
         while (this.isLocked && attempts < maxAttempts) {
-            console.log(`[LOCK-${lockId}] 모듈 ${moduleId} 락 대기 중... (${attempts + 1}/${maxAttempts})`);
+            //console.log(`[LOCK-${lockId}] 모듈 ${moduleId} 락 대기 중... (${attempts + 1}/${maxAttempts})`);
             await new Promise(resolve => setTimeout(resolve, 100));
             attempts++;
         }
@@ -297,12 +297,12 @@ Byte1
         
         this.isLocked = true;
         const acquireTime = Date.now() - startTime;
-        console.log(`[LOCK-${lockId}] 모듈 ${moduleId} 락 획득 성공 - 소요시간: ${acquireTime}ms`);
+        //console.log(`[LOCK-${lockId}] 모듈 ${moduleId} 락 획득 성공 - 소요시간: ${acquireTime}ms`);
         
         // 타임아웃 설정 (자동 해제)
         setTimeout(() => {
             if (this.isLocked) {
-                console.warn(`[LOCK-${lockId}] 모듈 ${moduleId} 락 자동 해제 (타임아웃: ${this.lockTimeout}ms)`);
+                //console.warn(`[LOCK-${lockId}] 모듈 ${moduleId} 락 자동 해제 (타임아웃: ${this.lockTimeout}ms)`);
                 this.isLocked = false;
             }
         }, this.lockTimeout);
@@ -313,10 +313,10 @@ Byte1
      */
     releaseLock() {
         if (this.isLocked) {
-            console.log(`[LOCK] 락 해제 완료`);
+            //console.log(`[LOCK] 락 해제 완료`);
             this.isLocked = false;
         } else {
-            console.warn(`[LOCK] 락이 이미 해제되어 있음`);
+            loggerWinston.warn(`[LOCK] 락이 이미 해제되어 있음`);
         }
     }
 

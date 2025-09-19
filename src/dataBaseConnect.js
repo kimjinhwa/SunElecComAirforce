@@ -2,7 +2,8 @@ import bcrypt from 'bcrypt';
 import dotenv from 'dotenv';
 import pg from 'pg';
 import dayjs from 'dayjs';
-import logger from './logger.js';
+//import logger from './logger.js';
+import loggerWinston from './loggerWinston.js';
 const {Pool} = pg;
 // AlarmTypes 상수 정의 추가
 const AlarmTypes = {
@@ -12,7 +13,6 @@ const AlarmTypes = {
   HIGH_TEMPERATURE: 4,
   DISCHARGE: 5
 };
-
 const InsertLogQuery = `
   insert into batterylog (datetime, rackno, moduleno, batnumber, 
                                 voltage, impedance, ampere, temperature, soc, state, totalvoltage)
@@ -118,7 +118,7 @@ const rackDatas = [
   }
 ];
 dotenv.config();
-console.log("DATABASE_URL-------------->", process.env.DATABASE_URL);
+loggerWinston.info("DATABASE_URL-------------->", process.env.DATABASE_URL);
 
 function toInt16(value) {
   const int16 = value & 0xFFFF;  // 16비트만 사용
@@ -140,7 +140,7 @@ class DataBaseConnect {
       await this.createUser();
       await this.insertAlarmDefinitions();
       this.initialized = true;
-      console.log('Database initialization completed');
+      loggerWinston.info('Database initialization completed');
     }
   }
   async createUser() {
@@ -153,7 +153,7 @@ class DataBaseConnect {
       const hashpassword = await bcrypt.hash(password, salt);
       const email = 'iftech@iftech.co.kr';
       await client.query('BEGIN');
-      console.log('userResult.rows.name', userResult.rows.length);
+      loggerWinston.info('userResult.rows.name', userResult.rows.length);
 
       if (userResult.rows.length == 0) {
         await client.query(`
@@ -180,7 +180,7 @@ class DataBaseConnect {
       throw error;
     } finally {
       await client.release();
-      console.log('Tables created successfully');
+      loggerWinston.info('Tables created successfully');
     }
   }
 
@@ -213,13 +213,13 @@ class DataBaseConnect {
         }
         await client.query(`COMMIT`);
       }
-      console.log('getModuleData successfully', moduleResult);
+      loggerWinston.info('getModuleData successfully', moduleResult);
     } catch (error) {
       await client.query(`ROLLBACK`);
       throw error;
     } finally {
       await client.release();
-      console.log('Initial data inserted successfully');
+      loggerWinston.info('Initial data inserted successfully');
     }
   }
 
@@ -291,27 +291,29 @@ class DataBaseConnect {
       await client.query('COMMIT');
     } catch (e) {
       await client.query('ROLLBACK');
-      console.error('Error inserting alarm definitions:', e);
+      loggerWinston.error('Error inserting alarm definitions:', e);
     } finally {
       client.release();
-      console.log('Alarm definitions inserted successfully');
+      loggerWinston.info('Alarm definitions inserted successfully');
     }
   }
 
   async logBatteryData(multi_data, state) 
   {
-    // console.log('logBatteryData success:', multi_data.summary.success,
+    // loggerWinston.info('logBatteryData success:', multi_data.summary.success,
     //   'failed:', multi_data.summary.failed);
-    console.log('logBatteryData-------------->', multi_data, state);
+    //loggerWinston.info('logBatteryData-------------->', multi_data, state);
     const client = await this.pool.connect();
     try {
       let insertCount = 0;
       const currentTime = dayjs().format("YYYY-MM-DD HH:mm:ss"); //.tz('Asia/Seoul').format('YYYY-MM-DD HH:mm:ss');
-      console.log('currentTime---->>>:', currentTime);
+      loggerWinston.info('currentTime---->>>:', currentTime);
       const rackResult = await this.getRackData();
       const rackInfo = rackResult[0];
       const moduleResult = await this.getModuleData(rackInfo.rackno);
-      logger.debug('Multiple Register data:', multi_data);
+      loggerWinston.debug('Multiple Register data:', multi_data);
+
+
       let batteryData = {
         Voltage: 0.0,
         Impedance: 0.0,
@@ -324,9 +326,10 @@ class DataBaseConnect {
       insertCount = 0;
       let AmpereModuleOne = 0.0;
       for (const module of moduleResult) {
-        console.log('module-------------->', module);
-        console.log('multi_data.devices[module.moduleno]-------------->',
-          multi_data[`module${module.moduleno}`].result.status);
+        loggerWinston.info('module-------------->'+
+          JSON.stringify(module));
+        loggerWinston.info('multi_data.devices[module.moduleno]-------------->'+
+          JSON.stringify(multi_data[`module${module.moduleno}`].result.status));
         if (multi_data[`module${module.moduleno}`].result.status == 'success') // 모듈 데이터 읽기 성공
         {
           for (let batNum = 1; batNum <= module.installedbat; batNum++) {
@@ -354,7 +357,6 @@ class DataBaseConnect {
               batteryData.Temperature, batteryData.SOC, batteryData.State, batteryData.totalVoltage]);
 
             await this.checkAndLogAlarms(currentTime, module.rackno, module.moduleno, batNum, batteryData, rackInfo);
-            console.log('checkAndLogAlarms-------------->', currentTime, module.rackno, module.moduleno, batNum, batteryData, rackInfo);
           }
         }
         else {
@@ -378,9 +380,8 @@ class DataBaseConnect {
           }
         }
       }
-      // console.log(`${currentTime} BatteryLog 테이블에 ${insertCount}개 데이터 추가`);
     } catch (e) {
-      console.error('Error logging battery data:', e);
+      loggerWinston.error('Error logging battery data:', e);
     } finally {
       client.release();
     }

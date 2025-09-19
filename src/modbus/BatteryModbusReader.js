@@ -223,26 +223,26 @@ class BatteryModbusReader {
         const batchId = Math.random().toString(36).substring(2, 11);
         const startTime = Date.now();
         
-        console.log(`[BATCH-${batchId}] 모든 모듈 데이터 읽기 시작 - 모듈 수: ${installedModuleCount}`);
+        //console.log(`[BATCH-${batchId}] 모든 모듈 데이터 읽기 시작 - 모듈 수: ${installedModuleCount}`);
         
         const promises = [];
         
         // 모듈 39-46에 대한 데이터 읽기 Promise 생성
         for (let moduleId = startModuleId; moduleId < startModuleId + installedModuleCount; moduleId++) {
 
-            console.log(`[BATCH-${batchId}] 모듈 ${moduleId} 읽기 Promise 생성`);
+            //console.log(`[BATCH-${batchId}] 모듈 ${moduleId} 읽기 Promise 생성`);
             promises.push(this.readModuleData(moduleId));
             // 배열을 테스트하기 위해 한번 더 해 보자
-            console.log(`[BATCH-${batchId}] 모듈 ${moduleId} 읽기 Promise 생성`);
+            //console.log(`[BATCH-${batchId}] 모듈 ${moduleId} 읽기 Promise 생성`);
             promises.push(this.readModuleData(moduleId));
         }
         
         try {
-            console.log(`[BATCH-${batchId}] ${promises.length}개 모듈 병렬 읽기 시작`);
+            //console.log(`[BATCH-${batchId}] ${promises.length}개 모듈 병렬 읽기 시작`);
             const results = await Promise.all(promises);
             const duration = Date.now() - startTime;
             
-            console.log(`[BATCH-${batchId}] 모든 모듈 읽기 완료 - 소요시간: ${duration}ms`);
+            //console.log(`[BATCH-${batchId}] 모든 모듈 읽기 완료 - 소요시간: ${duration}ms`);
             
             const moduleData = {};
             
@@ -250,7 +250,7 @@ class BatteryModbusReader {
             results.forEach((data, index) => {
                 const moduleId = index + startModuleId -38; // 39부터 시작
                 moduleData[`module${moduleId}`] = data;
-                console.log(`[BATCH-${batchId}] 모듈 ${moduleId} 데이터 정리 완료`);
+                //console.log(`[BATCH-${batchId}] 모듈 ${moduleId} 데이터 정리 완료`);
                 this.multi_data.summary.total = installedModuleCount;
             });
             this.multi_data.summary.success = 0;
@@ -261,8 +261,8 @@ class BatteryModbusReader {
                 this.multi_data.devices[`${moduleId}`] = data.result;
                 this.multi_data.summary.success++;
             });
-            console.log("moduleData-------------->", this.multi_data);
-            console.log(`[BATCH-${batchId}] 모든 모듈 데이터 정리 완료 - 총 소요시간: ${Date.now() - startTime}ms`);
+            //console.log("moduleData-------------->", this.multi_data);
+            //console.log(`[BATCH-${batchId}] 모든 모듈 데이터 정리 완료 - 총 소요시간: ${Date.now() - startTime}ms`);
             
             // 통계 업데이트
             this.updateStats(true);
@@ -364,11 +364,11 @@ class BatteryModbusReader {
         const sessionId = Math.random().toString(36).substring(2, 11);
         const startTime = Date.now();
         
-        console.log(`[SESSION-${sessionId}] 모듈 ${moduleId} PackInfo 읽기 세션 시작`);
+        //console.log(`[SESSION-${sessionId}] 모듈 ${moduleId} PackInfo 읽기 세션 시작`);
         
         // 시뮬레이션 모드인 경우 가짜 데이터 반환
         if (this.simulationMode) {
-            console.log(`[SESSION-${sessionId}] 시뮬레이션 모드 - 가짜 데이터 반환`);
+            //console.log(`[SESSION-${sessionId}] 시뮬레이션 모드 - 가짜 데이터 반환`);
             return this.generateSimulatedPackInfo(moduleId);
         }
 
@@ -378,7 +378,7 @@ class BatteryModbusReader {
         while (retryCount <= maxRetries) {
             try {
                 const mapping = this.registerMappings.packInfo;
-                console.log(`[SESSION-${sessionId}] 모듈 ${moduleId} PackInfo 읽기 시도 ${retryCount + 1}/${maxRetries + 1} - 주소: 0x${mapping.startAddress.toString(16)}, 개수: ${mapping.count}`);
+                //console.log(`[SESSION-${sessionId}] 모듈 ${moduleId} PackInfo 읽기 시도 ${retryCount + 1}/${maxRetries + 1} - 주소: 0x${mapping.startAddress.toString(16)}, 개수: ${mapping.count}`);
                 
                 const result = await this.modbusClient.readInputRegister(
                     moduleId,
@@ -387,7 +387,7 @@ class BatteryModbusReader {
                 );
                 
                 const duration = Date.now() - startTime;
-                console.log(`[SESSION-${sessionId}] 모듈 ${moduleId} PackInfo 읽기 성공 - 소요시간: ${duration}ms, 데이터 개수: ${result.data ? result.data.length : 0}`);
+                //console.log(`[SESSION-${sessionId}] 모듈 ${moduleId} PackInfo 읽기 성공 - 소요시간: ${duration}ms, 데이터 개수: ${result.data ? result.data.length : 0}`);
                 
                 // 데이터 유효성 검사
                 if (!result || !result.data || result.data.length !== mapping.count) {
@@ -396,21 +396,21 @@ class BatteryModbusReader {
                 // 
                 // 51개 레지스터 데이터를 파싱
                 const parsedData = this.parsePackInfoData(result);
-                console.log(`[SESSION-${sessionId}] 모듈 ${moduleId} 데이터 파싱 완료`);
+                //console.log(`[SESSION-${sessionId}] 모듈 ${moduleId} 데이터 파싱 완료`);
                 
                 return parsedData;
                 
             } catch (error) {
                 retryCount++;
                 const duration = Date.now() - startTime;
-                console.error(`[SESSION-${sessionId}] 모듈 ${moduleId} PackInfo 읽기 실패 (시도 ${retryCount}/${maxRetries + 1}) - 소요시간: ${duration}ms, 에러: ${error.message}`);
+                //console.error(`[SESSION-${sessionId}] 모듈 ${moduleId} PackInfo 읽기 실패 (시도 ${retryCount}/${maxRetries + 1}) - 소요시간: ${duration}ms, 에러: ${error.message}`);
                 
                 if (retryCount <= maxRetries) {
                     const retryDelay = Math.min(1000 * retryCount, 3000); // 1초, 2초, 3초 대기
-                    console.log(`[SESSION-${sessionId}] ${retryDelay}ms 후 재시도...`);
+                    //console.log(`[SESSION-${sessionId}] ${retryDelay}ms 후 재시도...`);
                     await new Promise(resolve => setTimeout(resolve, retryDelay));
                 } else {
-                    console.error(`[SESSION-${sessionId}] 모듈 ${moduleId} 최대 재시도 횟수 초과 - 기본값 반환`);
+                    //console.error(`[SESSION-${sessionId}] 모듈 ${moduleId} 최대 재시도 횟수 초과 - 기본값 반환`);
                     return this.generateResetPackInfo(moduleId);
                 }
             }
