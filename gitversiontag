@@ -26,7 +26,7 @@ if echo "$content" | grep -q '#define version ".*".*//.*'; then
         echo "태그 생성"
         git tag -a "$version" -m "$comment"
     fi
-    git push origin main -f --tags
+    git push origin mainNarada -f --tags
 else
     echo "Version.h 파일을 찾을 수 없습니다."
 fi
