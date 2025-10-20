@@ -4,6 +4,7 @@ import pg from 'pg';
 import dayjs from 'dayjs';
 //import logger from './logger.js';
 import loggerWinston from './loggerWinston.js';
+const logger = loggerWinston; // logger 별칭 추가
 const {Pool} = pg;
 // AlarmTypes 상수 정의 추가
 const AlarmTypes = {

@@ -7,6 +7,8 @@ import loggerWinston from './loggerWinston.js';
 // nodemon 테스트 주석 - 수정됨
 import BatteryModbusReader from './modbus/BatteryModbusReader.js';
 import ModbusDeviceClient from './modbus/ModbusDeviceClient.js';
+import NaradaProtocolClient from './modbus/NaradaProtocolClient.js';
+import NaradaDataParser from './modbus/NaradaDataParser.js';
 import { startApiServer, setBatteryMibInstance } from './apiServer.js';
 const port = Number(process.env.SNMP_AGENT_PORT ?? 1161);
 const address = process.env.SNMP_AGENT_ADDR ?? '0.0.0.0';
@@ -102,14 +104,33 @@ loggerWinston.info(`  Write: snmpset -v2c -c ${writeCommunity} 127.0.0.1:${port}
 // 데이터베이스 초기화
 await dataBaseConnect.initialize();
 
-const modbusDeviceClient = new ModbusDeviceClient();
+// 프로토콜 타입 선택 (환경변수 또는 기본값)
+const protocolType = process.env.PROTOCOL_TYPE || 'modbus'; // 'modbus' 또는 'narada'
+const serialPort = process.env.SERIAL_PORT || '/dev/ttyDevice485'; // 시리얼 포트 경로
+
+let deviceClient;
+
+if (protocolType === 'narada') {
+    // Narada 프로토콜 사용
+    deviceClient = new NaradaProtocolClient(serialPort, 9600);
+    console.log(`Narada 프로토콜 사용 - 포트: ${serialPort}`);
+} else {
+    // Modbus 프로토콜 사용 (기존 방식)
+    deviceClient = new ModbusDeviceClient();
+    console.log('Modbus 프로토콜 사용');
+}
+
 const rackData = await dataBaseConnect.getRackData();
-modbusDeviceClient.connect().then(() => {
-    console.log('Modbus 연결 완료');
-    modbusDeviceClient.setID(39);
+
+deviceClient.connect().then(() => {
+    console.log(`${protocolType} 연결 완료`);
+    
+    if (protocolType === 'modbus') {
+        deviceClient.setID(39);
+    }
     
     // BatteryMib에 ModbusReader 설정 및 데이터 업데이트 시작
-    batteryMib.setModbusReader(modbusDeviceClient);
+    batteryMib.setModbusReader(deviceClient, protocolType);
     
     // API 서버에 BatteryMib 인스턴스 설정
     setBatteryMibInstance(batteryMib);

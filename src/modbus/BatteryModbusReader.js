@@ -3,10 +3,12 @@
  * MIB OID를 Modbus 레지스터 주소로 매핑하여 데이터를 읽고 씁니다.
  */
 
+import NaradaDataParser from './NaradaDataParser.js';
+
 const startModuleId = 39;
 let installedModuleCount = 1;
 class BatteryModbusReader {
-    constructor(modbusClient,moduleCount) {
+    constructor(modbusClient, moduleCount, protocolType = 'modbus') {
         this.multi_data= {
             timestamp: new Date(),
             devices: {},
@@ -21,6 +23,7 @@ class BatteryModbusReader {
         console.log("moduleCount-------------->", moduleCount);
 
         this.modbusClient = modbusClient;
+        this.protocolType = protocolType; // 'modbus' 또는 'narada'
         this.registerMappings = this.initializeRegisterMappings();
         this.isReading = false;
         this.readInterval = null;
@@ -229,21 +232,32 @@ class BatteryModbusReader {
         
         //console.log(`[BATCH-${batchId}] 모든 모듈 데이터 읽기 시작 - 모듈 수: ${installedModuleCount}`);
         
-        const promises = [];
+        const results = [];
         
-        // 모듈 39-46에 대한 데이터 읽기 Promise 생성
-        for (let moduleId = startModuleId; moduleId < startModuleId + installedModuleCount; moduleId++) {
-
-            //console.log(`[BATCH-${batchId}] 모듈 ${moduleId} 읽기 Promise 생성`);
-            promises.push(this.readModuleData(moduleId));
-            // 배열을 테스트하기 위해 한번 더 해 보자
-            //console.log(`[BATCH-${batchId}] 모듈 ${moduleId} 읽기 Promise 생성`);
-            //promises.push(this.readModuleData(moduleId));
+        // Narada 프로토콜은 시리얼 half-duplex 특성상 순차 읽기, Modbus는 병렬 허용
+        if (this.protocolType === 'narada') {
+            for (let moduleId = startModuleId; moduleId < startModuleId + installedModuleCount; moduleId++) {
+                console.log(`[BATCH-${batchId}] 모듈 ${moduleId} 순차 읽기 시작`);
+                const r = await this.readModuleData(moduleId);
+                results.push(r);
+                
+                // 모듈 간 요청 간격 (RS-485 안정성을 위해)
+                if (moduleId < startModuleId + installedModuleCount - 1) {
+                    await new Promise(resolve => setTimeout(resolve, 100)); // 100ms 대기
+                }
+            }
+        } else {
+            const promises = [];
+            for (let moduleId = startModuleId; moduleId < startModuleId + installedModuleCount; moduleId++) {
+                console.log(`[BATCH-${batchId}] 모듈 ${moduleId} 읽기 Promise 생성---------->`);
+                promises.push(this.readModuleData(moduleId));
+            }
+            //console.log(`[BATCH-${batchId}] ${promises.length}개 모듈 병렬 읽기 시작`);
+            const parallel = await Promise.all(promises);
+            results.push(...parallel);
         }
         
         try {
-            //console.log(`[BATCH-${batchId}] ${promises.length}개 모듈 병렬 읽기 시작`);
-            const results = await Promise.all(promises);
             const duration = Date.now() - startTime;
             
             //console.log(`[BATCH-${batchId}] 모든 모듈 읽기 완료 - 소요시간: ${duration}ms`);
@@ -314,8 +328,10 @@ class BatteryModbusReader {
      */
     async readModuleData(moduleId) {
         try {
-            // Modbus ID 설정 (모듈 ID와 동일)
-            this.modbusClient.setID(moduleId);
+            // Modbus ID 설정 (Modbus 프로토콜인 경우에만)
+            if (this.protocolType === 'modbus') {
+                this.modbusClient.setID(moduleId);
+            }
             
             const packData= await this.readPackDataInputRegister(moduleId);
             //여기에서 이미 modbusResultData에 데이터가 추가되어 있음
@@ -381,23 +397,36 @@ class BatteryModbusReader {
         
         while (retryCount <= maxRetries) {
             try {
-                const mapping = this.registerMappings.packInfo;
-                //console.log(`[SESSION-${sessionId}] 모듈 ${moduleId} PackInfo 읽기 시도 ${retryCount + 1}/${maxRetries + 1} - 주소: 0x${mapping.startAddress.toString(16)}, 개수: ${mapping.count}`);
+                let result;
                 
-                const result = await this.modbusClient.readInputRegister(
-                    moduleId,
-                    mapping.startAddress, 
-                    mapping.count
-                );
+                if (this.protocolType === 'narada') {
+                    // Narada 프로토콜 사용
+                    const naradaData = await this.modbusClient.getPackData(moduleId - 39); // 39-46을 0-7로 변환
+                    result = {
+                        data: NaradaDataParser.convertToModbusFormat(naradaData),
+                        buffer: Buffer.from(NaradaDataParser.convertToModbusFormat(naradaData))
+                    };
+                    console.log(`[Narada] 파싱된 데이터2`, result);
+                } else {
+                    // Modbus 프로토콜 사용 (기존 방식)
+                    const mapping = this.registerMappings.packInfo;
+                    //console.log(`[SESSION-${sessionId}] 모듈 ${moduleId} PackInfo 읽기 시도 ${retryCount + 1}/${maxRetries + 1} - 주소: 0x${mapping.startAddress.toString(16)}, 개수: ${mapping.count}`);
+                    
+                    result = await this.modbusClient.readInputRegister(
+                        moduleId,
+                        mapping.startAddress, 
+                        mapping.count
+                    );
+                }
                 
                 const duration = Date.now() - startTime;
                 //console.log(`[SESSION-${sessionId}] 모듈 ${moduleId} PackInfo 읽기 성공 - 소요시간: ${duration}ms, 데이터 개수: ${result.data ? result.data.length : 0}`);
                 
                 // 데이터 유효성 검사
-                if (!result || !result.data || result.data.length !== mapping.count) {
-                    throw new Error(`데이터 길이 불일치 - 예상: ${mapping.count}, 실제: ${result.data ? result.data.length : 0}`);
+                if (!result || !result.data || result.data.length < 51) {
+                    throw new Error(`데이터 길이 불일치 - 예상: 51, 실제: ${result.data ? result.data.length : 0}`);
                 }
-                // 
+                
                 // 51개 레지스터 데이터를 파싱
                 const parsedData = this.parsePackInfoData(result);
                 //console.log(`[SESSION-${sessionId}] 모듈 ${moduleId} 데이터 파싱 완료`);

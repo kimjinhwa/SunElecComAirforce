@@ -336,12 +336,13 @@ class BatteryMib {
     /**
      * Modbus 리더 설정
      * @param {Object} modbusClient - Modbus 클라이언트
+     * @param {string} protocolType - 프로토콜 타입 ('modbus' 또는 'narada')
      */
-    async setModbusReader(modbusClient) {
+    async setModbusReader(modbusClient, protocolType = 'modbus') {
         const rackData = await dataBaseConnect.getRackData();
-            this.moduleCount = rackData[0].installedmodule;
-            console.log("rackData[0]-------------->", rackData[0],this.moduleCount);
-        this.modbusReader = new BatteryModbusReader(modbusClient,this.moduleCount);
+        this.moduleCount = rackData[0].installedmodule;
+        console.log("rackData[0]-------------->", rackData[0], this.moduleCount);
+        this.modbusReader = new BatteryModbusReader(modbusClient, this.moduleCount, protocolType);
     }
 
     /**

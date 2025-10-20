@@ -23,6 +23,7 @@
     "nodemon": "^3.1.10",
     "pg": "^8.16.3",
     "serialport": "^13.0.0",
+    "@serialport/parser-readline": "^13.0.0",
     "winston": "^3.17.0"
   }
 }
