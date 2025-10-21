@@ -84,6 +84,9 @@ class NaradaProtocolClient {
             try {
                 console.log(`[Narada] 팩 ${packNumber} 데이터 요청 시작 (시도 ${attempt + 1}/${maxRetries + 1})`);
                 
+                // 요청 전 시리얼 버퍼 클리어
+                await this.clearSerialBuffer();
+                
                 // 요청 데이터 생성: 7E [packNumber] 01 00 [checksum] 0D
                 const sendData = this.createRequestPacket(packNumber);
                 console.log(`[Narada] 요청 패킷:`, sendData.toString('hex'));
@@ -100,12 +103,15 @@ class NaradaProtocolClient {
                 // 데이터 파싱
                 const parsedData = this.parseResponseData(responseData, packNumber);
                 console.log(`[Narada] 팩 ${packNumber} 데이터 파싱 완료`);
-                console.log(`[Narada] 파싱된 데이터1`, parsedData);
+                //console.log(`[Narada] 파싱된 데이터1`, parsedData);
                 
                 return parsedData;
                 
             } catch (error) {
                 console.error(`팩 ${packNumber} 데이터 읽기 실패 (시도 ${attempt + 1}/${maxRetries + 1}):`, error.message);
+                
+                // 오류 시 버퍼 클리어
+                await this.clearSerialBuffer();
                 
                 if (attempt < maxRetries) {
                     // 재시도 전 잠시 대기
@@ -136,6 +142,27 @@ class NaradaProtocolClient {
     }
 
     /**
+     * 시리얼 버퍼 클리어
+     */
+    async clearSerialBuffer() {
+        return new Promise((resolve) => {
+            if (this.port && this.port.isOpen) {
+                // 기존 데이터 리스너 제거
+                this.port.removeAllListeners('data');
+                
+                // 간단한 타임아웃으로 버퍼 클리어 완료
+                console.log(`[Narada] 버퍼 클리어 시작`);
+                setTimeout(() => {
+                    console.log(`[Narada] 버퍼 클리어 완료`);
+                    resolve();
+                }, 50); // 50ms 대기
+            } else {
+                resolve();
+            }
+        });
+    }
+
+    /**
      * 시리얼 포트로 데이터 전송
      * @param {Buffer} data - 전송할 데이터
      */
@@ -159,33 +186,61 @@ class NaradaProtocolClient {
      */
     async readSerialData() {
         return new Promise((resolve, reject) => {
-            const timeout = 5000; // 5초 타임아웃으로 증가
-            const startTime = Date.now();
+            const timeout = 3000; // 3초 타임아웃
             let dataBuffer = Buffer.alloc(0);
-            let expectedLength = 0;
+            let dataReceived = false;
 
-            const dataHandler = (data) => {
-                dataBuffer = Buffer.concat([dataBuffer, data]);
-                
-                // 최소 4바이트 이상 받았을 때 길이 확인
-                if (dataBuffer.length > 4) {
-                    expectedLength = dataBuffer[3] + 6; // 길이 + 헤더(4) + CRC(1) + 종료(1)
-                    
-                    // 예상 길이만큼 데이터를 받았으면 완료
-                    if (dataBuffer.length >= expectedLength) {
-                        this.port.removeListener('data', dataHandler);
-                        clearTimeout(timeoutId);
-                        resolve(dataBuffer);
+            const tryAssemble = () => {
+                // 0x7E 동기화: 시작 바이트 찾기
+                const startIdx = dataBuffer.indexOf(0x7E);
+                if (startIdx === -1) {
+                    return false; // 아직 시작 못찾음
+                }
+                if (startIdx > 0) {
+                    // 쓰레기 프리픽스 제거
+                    dataBuffer = dataBuffer.slice(startIdx);
+                }
+                if (dataBuffer.length < 4) return false; // 헤더 부족
+
+                const lengthField = dataBuffer[3];
+                const expectedLength = lengthField + 6; // 헤더4 + CRC1 + 종료1
+                if (dataBuffer.length < expectedLength) return false; // 더 필요
+
+                // 종료 바이트 확인
+                if (dataBuffer[expectedLength - 1] !== 0x0D) {
+                    // 다음 0x7E까지 스킵
+                    const next = dataBuffer.indexOf(0x7E, 1);
+                    if (next !== -1) {
+                        dataBuffer = dataBuffer.slice(next);
+                        return false;
                     }
+                    return false;
+                }
+
+                return true;
+            };
+
+            const onData = (chunk) => {
+                dataReceived = true;
+                dataBuffer = Buffer.concat([dataBuffer, chunk]);
+                if (tryAssemble()) {
+                    this.port.removeListener('data', onData);
+                    clearTimeout(tid);
+                    console.log(`[Narada] 완전한 응답 수신: ${dataBuffer.length} bytes`);
+                    resolve(dataBuffer);
                 }
             };
 
-            const timeoutId = setTimeout(() => {
-                this.port.removeListener('data', dataHandler);
-                reject(new Error('데이터 읽기 타임아웃'));
+            const tid = setTimeout(() => {
+                this.port.removeListener('data', onData);
+                if (!dataReceived) {
+                    reject(new Error('데이터 읽기 타임아웃 - 응답 없음'));
+                } else {
+                    reject(new Error(`데이터 읽기 타임아웃 - 부분 수신: ${dataBuffer.length} bytes`));
+                }
             }, timeout);
 
-            this.port.on('data', dataHandler);
+            this.port.on('data', onData);
         });
     }
 
@@ -231,7 +286,8 @@ class NaradaProtocolClient {
                 readCycleCount: 0,
                 totalVoltage: 0,
                 soh: 0,
-                bmsProtectStatus: 0
+                bmsProtectStatus: 0,
+                isValid: true
             };
 
             // 데이터 블록 파싱 (길이만큼)
@@ -283,7 +339,9 @@ class NaradaProtocolClient {
 
         } catch (error) {
             console.error('데이터 파싱 오류:', error.message);
-            return this.createDefaultData(packNumber);
+            const invalid = this.createDefaultData(packNumber);
+            invalid.isValid = false;
+            return invalid;
         }
     }
 

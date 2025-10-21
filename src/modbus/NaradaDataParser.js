@@ -76,6 +76,15 @@ class NaradaDataParser {
      * @returns {Array} Modbus 형식의 51개 레지스터 배열
      */
     static convertToModbusFormat(naradaData) {
+        // 유효하지 않은 데이터면 51레지스터 기본값 반환
+        if (!naradaData || naradaData.isValid === false) {
+            return new Array(51).fill(0).map((v, idx) => {
+                if (idx === 3 || idx === 4 || (idx >= 31 && idx <= 36)) return 400; // 온도 기본 40.0°C(=400)
+                if (idx === 13) return 15; // 설치 셀 수
+                if (idx === 30) return 6; // 온도 센서 수
+                return 0;
+            });
+        }
         const data = new Array(51).fill(0);
 
         if (!naradaData) return data;

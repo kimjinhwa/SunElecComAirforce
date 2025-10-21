@@ -39,6 +39,7 @@ class BatteryModbusReader {
             consecutiveFailures: 0,
             maxConsecutiveFailures: 0
         };
+        this.lastGoodPackByModule = new Map();
         this.startStatsMonitoring();
     }
 
@@ -334,6 +335,15 @@ class BatteryModbusReader {
             }
             
             const packData= await this.readPackDataInputRegister(moduleId);
+
+            // 유효성 검사 실패 시 마지막 정상값으로 대체
+            if (packData && packData.result && packData.result.data && packData.result.data.length >= 51) {
+                // 기본적으로 parsePackInfoData 성공 케이스
+                this.lastGoodPackByModule.set(moduleId, packData);
+            } else if (this.lastGoodPackByModule.has(moduleId)) {
+                console.warn(`[Narada] 모듈 ${moduleId} 유효하지 않은 데이터 -> 마지막 정상값으로 대체`);
+                return this.lastGoodPackByModule.get(moduleId);
+            }
             //여기에서 이미 modbusResultData에 데이터가 추가되어 있음
 
             return {
