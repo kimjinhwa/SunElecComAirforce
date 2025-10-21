@@ -223,6 +223,15 @@ class NaradaProtocolClient {
             const onData = (chunk) => {
                 dataReceived = true;
                 dataBuffer = Buffer.concat([dataBuffer, chunk]);
+                
+                // 8D를 0D로 강제 변환 (시리얼 통신 왜곡 보정)
+                for (let i = 0; i < dataBuffer.length; i++) {
+                    if (dataBuffer[i] === 0x8D) {
+                        dataBuffer[i] = 0x0D;
+                        console.log(`[Narada] 8D->0D 변환: 위치 ${i}`);
+                    }
+                }
+                
                 if (tryAssemble()) {
                     this.port.removeListener('data', onData);
                     clearTimeout(tid);

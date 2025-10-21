@@ -1,4 +1,5 @@
-#define version "VER_2.0.2"  // Narada 프로토콜 완료함 
+#define version "VER_2.0.4"  // 왜곡된 8D -> 0D 데이터를 보정하는 기능을 추가함 
+//#define version "VER_2.0.3"  // Narada 프로토콜 완료함 
 //#define version "VER_2.0.1"  // 완료함 
 //#define version "VER_2.0.0"  // 새로운 프토토콜 즉 나라다 자체 프로토콜을 시작한다. 
 //#define version "VER_1.1.2"  // Add Module Count to Modbus Reader from database
