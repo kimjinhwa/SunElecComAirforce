@@ -218,7 +218,7 @@ class BatteryMib {
             loggerWinston.info("startDataUpdate at every 5 seconds");
             //this.updateSimulatedData();
             this.updateFromModbus();
-        }, 5000);
+        }, 10000);
     }
 
     /**

@@ -244,7 +244,7 @@ class BatteryModbusReader {
                 
                 // 모듈 간 요청 간격 (RS-485 안정성을 위해)
                 if (moduleId < startModuleId + installedModuleCount - 1) {
-                    await new Promise(resolve => setTimeout(resolve, 100)); // 100ms 대기
+                    await new Promise(resolve => setTimeout(resolve, 500)); // 100ms 대기
                 }
             }
         } else {
