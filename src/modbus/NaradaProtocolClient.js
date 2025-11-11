@@ -6,6 +6,8 @@
 import { SerialPort } from 'serialport';
 import { ReadlineParser } from '@serialport/parser-readline';
 
+const CELL_BALANCE_FLAG = 0x8000;
+
 class NaradaProtocolClient {
     constructor(portPath, baudRate = 9600) {
         this.portPath = portPath;
@@ -224,14 +226,6 @@ class NaradaProtocolClient {
                 dataReceived = true;
                 dataBuffer = Buffer.concat([dataBuffer, chunk]);
                 
-                // 8D를 0D로 강제 변환 (시리얼 통신 왜곡 보정)
-                for (let i = 0; i < dataBuffer.length; i++) {
-                    if (dataBuffer[i] === 0x8D) {
-                        dataBuffer[i] = 0x0D;
-                        console.log(`[Narada] 8D->0D 변환: 위치 ${i}`);
-                    }
-                }
-                
                 if (tryAssemble()) {
                     this.port.removeListener('data', onData);
                     clearTimeout(tid);
@@ -363,7 +357,10 @@ class NaradaProtocolClient {
     parseDataBlock(command, data, parsedData) {
         switch (command) {
             case 1: // 전압 (15개 셀)
-                parsedData.cellVoltages = this.makeIntArray(data, 15);
+                {
+                    const rawVoltages = this.makeIntArray(data, 15);
+                    parsedData.cellVoltages = rawVoltages.map(value => value & (~CELL_BALANCE_FLAG & 0xFFFF));
+                }
                 break;
             case 2: // 전류
                 parsedData.current = this.makeInt(( data -30000)/10.0) + 10000;
@@ -398,6 +395,7 @@ class NaradaProtocolClient {
                 console.log(`[Narada] 알 수 없는 명령어: 0x${command.toString(16)}`);
         }
     }
+
     /**
      * 16비트 정수 배열 생성
      * @param {Buffer} data - 데이터 버퍼
