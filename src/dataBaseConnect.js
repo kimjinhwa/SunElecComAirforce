@@ -132,6 +132,31 @@ class DataBaseConnect {
       connectionString: process.env.DATABASE_URL,
     });
     this.initialized = false;
+    
+    // 변화 감지 기반 로깅을 위한 설정
+    // 환경변수로 설정 가능 (기본값 제공)
+    this.logThresholds = {
+      voltage: parseFloat(process.env.LOG_THRESHOLD_VOLTAGE || '0.01'), // V 단위 (기본 0.01V = 10mV)
+      temperature: parseFloat(process.env.LOG_THRESHOLD_TEMPERATURE || '1.0'), // °C 단위 (기본 1.0°C)
+      current: parseFloat(process.env.LOG_THRESHOLD_CURRENT || '1.0'), // A 단위 (기본 0.1A)
+      soc: parseFloat(process.env.LOG_THRESHOLD_SOC || '1.0'), // % 단위 (기본 1.0%)
+      totalVoltage: parseFloat(process.env.LOG_THRESHOLD_TOTAL_VOLTAGE || '1.0'), // V 단위 (기본 0.1V)
+    };
+    
+    // 강제 기록 간격 (밀리초)
+    this.forceLogInterval = parseInt(process.env.LOG_FORCE_INTERVAL || '3600000'); // 기본 1시간 (3600000ms)
+    
+    // 이전 기록 데이터 저장 (모듈별)
+    this.lastLoggedData = new Map(); // key: `${rackno}_${moduleno}_${batNum}`, value: {voltage, temperature, current, soc, totalVoltage}
+    this.lastLogTime = new Map(); // key: `${rackno}_${moduleno}`, value: timestamp
+    
+    loggerWinston.info('[DataBase] 변화 감지 기반 로깅 설정:');
+    loggerWinston.info(`  전압 임계값: ${this.logThresholds.voltage}V`);
+    loggerWinston.info(`  온도 임계값: ${this.logThresholds.temperature}°C`);
+    loggerWinston.info(`  전류 임계값: ${this.logThresholds.current}A`);
+    loggerWinston.info(`  SOC 임계값: ${this.logThresholds.soc}%`);
+    loggerWinston.info(`  총 전압 임계값: ${this.logThresholds.totalVoltage}V`);
+    loggerWinston.info(`  강제 기록 간격: ${this.forceLogInterval / 1000 / 60}분`);
   }
 
   async initialize() {
@@ -267,6 +292,54 @@ class DataBaseConnect {
   // * 7: 방전완료
 
   // 알람 정의 설명 업데이트
+  /**
+   * 데이터 변화 감지 - 기록 여부 판단
+   * @param {number} rackno - 랙 번호
+   * @param {number} moduleno - 모듈 번호
+   * @param {number} batNum - 배터리 번호
+   * @param {Object} currentData - 현재 데이터 {voltage, temperature, current, soc, totalVoltage}
+   * @returns {boolean} 기록 여부
+   */
+  shouldLogData(rackno, moduleno, batNum, currentData) {
+    const dataKey = `${rackno}_${moduleno}_${batNum}`;
+    const moduleKey = `${rackno}_${moduleno}`;
+    const now = Date.now();
+    
+    // 이전 데이터가 없으면 기록 (첫 기록)
+    if (!this.lastLoggedData.has(dataKey)) {
+      loggerWinston.debug(`[DataBase] 첫 기록: ${dataKey}`);
+      return true;
+    }
+    
+    const lastData = this.lastLoggedData.get(dataKey);
+    const lastTime = this.lastLogTime.get(moduleKey) || 0;
+    
+    // 강제 기록 간격 경과 확인 (1시간)
+    if (now - lastTime >= this.forceLogInterval) {
+      loggerWinston.debug(`[DataBase] 강제 기록 (${Math.round((now - lastTime) / 1000 / 60)}분 경과): ${dataKey}`);
+      return true;
+    }
+    
+    // 변화 감지: 임계값 이상 변화가 있으면 기록
+    const voltageDiff = Math.abs(currentData.voltage - (lastData.voltage || 0));
+    const temperatureDiff = Math.abs(currentData.temperature - (lastData.temperature || 0));
+    const currentDiff = Math.abs(currentData.current - (lastData.current || 0));
+    const socDiff = Math.abs(currentData.soc - (lastData.soc || 0));
+    const totalVoltageDiff = Math.abs(currentData.totalVoltage - (lastData.totalVoltage || 0));
+    
+    if (voltageDiff >= this.logThresholds.voltage ||
+        temperatureDiff >= this.logThresholds.temperature ||
+        currentDiff >= this.logThresholds.current ||
+        socDiff >= this.logThresholds.soc ||
+        totalVoltageDiff >= this.logThresholds.totalVoltage) {
+      loggerWinston.debug(`[DataBase] 변화 감지 기록: ${dataKey} (전압:${voltageDiff.toFixed(3)}V, 온도:${temperatureDiff.toFixed(1)}°C, 전류:${currentDiff.toFixed(2)}A, SOC:${socDiff.toFixed(1)}%, 총전압:${totalVoltageDiff.toFixed(2)}V)`);
+      return true;
+    }
+    
+    // 변화가 없으면 기록하지 않음
+    return false;
+  }
+
   async insertAlarmDefinitions() {
 
     const client = await this.pool.connect();
@@ -354,8 +427,8 @@ class DataBaseConnect {
           for (let batNum = 1; batNum <= module.installedbat; batNum++) {
             AmpereModuleOne = multi_data[`module${module.moduleno}`].packInfo.CurrentValue;
             AmpereModuleOne = toInt16(AmpereModuleOne);
-            AmpereModuleOne -= 10000;
-            AmpereModuleOne *= 0.1;
+            // 0.1A 단위로 변환 (오프셋 없음, 이미 30000 오프셋이 처리됨)
+            AmpereModuleOne /= 10.0;
             batteryData.Voltage = multi_data[`module${module.moduleno}`].cellVoltages[batNum - 1];
             batteryData.Voltage /= 1000.0;
             batteryData.SOC = multi_data[`module${module.moduleno}`].packInfo.SOC;
@@ -370,10 +443,34 @@ class DataBaseConnect {
             batteryData.Ampere = AmpereModuleOne;
             batteryData.totalVoltage = multi_data[`module${module.moduleno}`].packInfo.packVoltage;
             batteryData.totalVoltage /= 100.0;
-            insertCount++;
-            await client.query(InsertLogQuery, [currentTime, module.rackno, module.moduleno, batNum,
-              batteryData.Voltage, batteryData.Impedance, batteryData.Ampere,
-              batteryData.Temperature, batteryData.SOC, batteryData.State, batteryData.totalVoltage]);
+            
+            // 변화 감지 기반 로깅: 기록 여부 판단
+            const currentData = {
+              voltage: batteryData.Voltage,
+              temperature: batteryData.Temperature,
+              current: batteryData.Ampere,
+              soc: batteryData.SOC,
+              totalVoltage: batteryData.totalVoltage
+            };
+            
+            const shouldLog = this.shouldLogData(module.rackno, module.moduleno, batNum, currentData);
+            
+            if (shouldLog) {
+              insertCount++;
+              await client.query(InsertLogQuery, [currentTime, module.rackno, module.moduleno, batNum,
+                batteryData.Voltage, batteryData.Impedance, batteryData.Ampere,
+                batteryData.Temperature, batteryData.SOC, batteryData.State, batteryData.totalVoltage]);
+              
+              // 기록된 데이터 저장
+              const dataKey = `${module.rackno}_${module.moduleno}_${batNum}`;
+              this.lastLoggedData.set(dataKey, currentData);
+              
+              // 모듈별 마지막 기록 시간 업데이트
+              const moduleKey = `${module.rackno}_${module.moduleno}`;
+              this.lastLogTime.set(moduleKey, Date.now());
+            } else {
+              loggerWinston.debug(`[DataBase] 변화 없음, 기록 건너뜀: 모듈${module.moduleno} 배터리${batNum}`);
+            }
 
             await this.checkAndLogAlarms(currentTime, module.rackno, module.moduleno, batNum, batteryData, rackInfo);
           }

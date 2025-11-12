@@ -363,7 +363,14 @@ class NaradaProtocolClient {
                 }
                 break;
             case 2: // 전류
-                parsedData.current = this.makeInt(( data -30000)/10.0) + 10000;
+                // 원본 데이터 형식: 30000 오프셋 (예: 30000 = 0A, 29900 = 10A, 30100 = -10A)
+                // 변환: (30000 - rawCurrent) / 100.0 = A 단위, 소수점 2자리 (예: 10.50A)
+                // Modbus 형식: 0.1A 단위 (예: 0 = 0A, 10 = 1.0A, 105 = 10.5A)
+                // 따라서: ((30000 - rawCurrent) / 100.0) * 10 (10000 오프셋 불필요, 이미 30000이 오프셋)
+                const rawCurrent = this.makeInt(data);
+                const currentInA = (30000 - rawCurrent) / 100.0; // A 단위, 소수점 2자리 (예: 10.50A)
+                parsedData.current = Math.round(currentInA * 10); // 0.1A 단위로 변환 (예: 10.5A -> 105)
+                console.log(`[Narada]====> 전류: 원본=${rawCurrent}, A단위=${currentInA}, 0.1A단위=${parsedData.current}`);
                 break;
             case 3: // SOC
                 parsedData.soc = this.makeInt(data);

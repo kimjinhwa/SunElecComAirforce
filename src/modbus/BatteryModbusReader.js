@@ -274,20 +274,21 @@ class BatteryModbusReader {
             const moduleData = {};
             
             // 결과를 모듈별로 정리
-            results.forEach((data, index) => {
-                const moduleId = startModuleId + index; // 39부터 시작 (index=0 -> 39, index=1 -> 40)
-                moduleData[`module${moduleId}`] = data;
-                //console.log(`[BATCH-${batchId}] 모듈 ${moduleId} 데이터 정리 완료`);
-                this.multi_data.summary.total = installedModuleCount;
-            });
+            this.multi_data.summary.total = installedModuleCount;
             this.multi_data.summary.success = 0;
             this.multi_data.summary.failed = 0;
+            
             results.forEach((data, index) => {
-                const moduleId = index + startModuleId -38; // 39부터 시작
+                const modbusModuleId = startModuleId + index; // 39부터 시작 (index=0 -> 39, index=1 -> 40)
+                const snmpModuleNo = index + 1; // 1부터 시작 (index=0 -> 1, index=1 -> 2)
+                
+                // moduleData는 Modbus ID 형식 (module39, module40)
+                moduleData[`module${modbusModuleId}`] = data;
+                //console.log(`[BATCH-${batchId}] 모듈 ${modbusModuleId} 데이터 정리 완료`);
                 
                 // result 객체가 없거나 status가 없는 경우 생성
                 if (!data.result) {
-                    console.warn(`[BATCH-${batchId}] 모듈 ${moduleId} result 객체 없음 - 실패 처리`);
+                    console.warn(`[BATCH-${batchId}] 모듈 ${snmpModuleNo} (Modbus ${modbusModuleId}) result 객체 없음 - 실패 처리`);
                     data.result = {
                         status: 'failed',
                         error: '데이터 읽기 실패 - result 객체 없음',
@@ -304,11 +305,12 @@ class BatteryModbusReader {
                     this.multi_data.summary.success++;
                 } else {
                     this.multi_data.summary.failed++;
-                    console.warn(`[BATCH-${batchId}] 모듈 ${moduleId} 실패 - status: ${data.result.status}, error: ${data.result.error || 'N/A'}`);
+                    console.warn(`[BATCH-${batchId}] 모듈 ${snmpModuleNo} (Modbus ${modbusModuleId}) 실패 - status: ${data.result.status}, error: ${data.result.error || 'N/A'}`);
                 }
                 
                 this.multi_data.timestamp = data.timestamp;
-                this.multi_data.devices[`${moduleId}`] = data.result;
+                // multi_data.devices는 SNMP 모듈 번호를 키로 사용 (1, 2, ...)
+                this.multi_data.devices[`${snmpModuleNo}`] = data.result;
             });
             //console.log("moduleData-------------->", this.multi_data);
             //console.log(`[BATCH-${batchId}] 모든 모듈 데이터 정리 완료 - 총 소요시간: ${Date.now() - startTime}ms`);

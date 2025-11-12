@@ -122,19 +122,18 @@ if (protocolType === 'narada') {
 
 const rackData = await dataBaseConnect.getRackData();
 
-deviceClient.connect().then(() => {
+deviceClient.connect().then(async () => {
     console.log(`${protocolType} 연결 완료`);
     
     if (protocolType === 'modbus') {
         deviceClient.setID(39);
     }
     
-    // BatteryMib에 ModbusReader 설정 및 데이터 업데이트 시작
-    batteryMib.setModbusReader(deviceClient, protocolType);
+    // BatteryMib에 ModbusReader 설정 및 초기 데이터 읽기 (비동기 대기)
+    await batteryMib.setModbusReader(deviceClient, protocolType);
     
     // API 서버에 BatteryMib 인스턴스 설정
     setBatteryMibInstance(batteryMib);
-    
     startApiServer();
     // 2초 후 주기적 데이터 업데이트 시작
     // setTimeout(() => {

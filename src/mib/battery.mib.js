@@ -343,6 +343,26 @@ class BatteryMib {
         this.moduleCount = rackData[0].installedmodule;
         console.log("rackData[0]-------------->", rackData[0], this.moduleCount);
         this.modbusReader = new BatteryModbusReader(modbusClient, this.moduleCount, protocolType);
+        
+        // 초기 데이터 읽기 (API 서버가 시작되기 전에 데이터 준비)
+        try {
+            loggerWinston.info('[Battery MIB] 초기 데이터 읽기 시작...');
+            await this.updateFromModbus();
+            loggerWinston.info('[Battery MIB] 초기 데이터 읽기 완료');
+        } catch (error) {
+            loggerWinston.warn('[Battery MIB] 초기 데이터 읽기 실패 (기본값으로 계속):', error.message);
+            // 실패해도 기본값으로 업데이트
+            try {
+                const defaultModuleData = this.createDefaultModuleData();
+                for (const [moduleKey, data] of Object.entries(defaultModuleData)) {
+                    const modbusModuleId = parseInt(moduleKey.replace('module', ''));
+                    const snmpModuleId = modbusModuleId - 38;
+                    this.updateModuleSnmpValues(snmpModuleId, data);
+                }
+            } catch (fallbackError) {
+                loggerWinston.error('[Battery MIB] 기본값 업데이트도 실패:', fallbackError.message);
+            }
+        }
     }
 
     /**

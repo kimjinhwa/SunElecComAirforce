@@ -26,8 +26,9 @@ class NaradaDataParser {
             return temp - 400;
         });
 
-        // 전류 변환 (0.1A 단위, 10000 오프셋 추가)
-        const currentValue = naradaData.current ;
+        // 전류 변환 (0.1A 단위, 오프셋 없음)
+        // NaradaProtocolClient에서 이미 30000 오프셋을 처리했으므로 0.1A 단위 값 그대로 사용
+        const currentValue = naradaData.current;
 
         // SOC 변환 (0x13 88 = 5000 -> 50%)
         const soc = Math.round(naradaData.soc / 100);
@@ -43,7 +44,7 @@ class NaradaDataParser {
 
         return {
             packVoltage: totalVoltage, // 0.01V 단위
-            CurrentValue: currentValue, // 0.1A 단위 (10000 오프셋)
+            CurrentValue: currentValue, // 0.1A 단위 (오프셋 없음)
             remainingCapacity: naradaData.capacity, // 용량
             AverageCellTemp: temperatures[0] || 0, // 평균 셀 온도 (0.1°C 단위)
             AmbientTemp: temperatures[5] || 0, // 주변 온도 (0.1°C 단위)
@@ -92,8 +93,8 @@ class NaradaDataParser {
         // 팩 전압 - 그대로 사용 (받는 프로그램에서 0.01 곱함)
         data[0] = naradaData.totalVoltage;
         
-        // 전류 (0.1A 단위, 10000 오프셋)
-        data[1] = naradaData.current; // 이미 오프셋이 적용된 값
+        // 전류 (0.1A 단위, 오프셋 없음)
+        data[1] = naradaData.current; // 0.1A 단위 값 (예: 105 = 10.5A)
         
         // 잔여 용량
         data[2] = naradaData.capacity;
@@ -161,7 +162,7 @@ class NaradaDataParser {
     static createDefaultData() {
         return {
             packVoltage: 0,
-            CurrentValue: 10000, // 0A (10000 오프셋)
+            CurrentValue: 0, // 0A (오프셋 없음)
             remainingCapacity: 0,
             AverageCellTemp: 0,
             AmbientTemp: 0,

@@ -1,4 +1,5 @@
-#define version "VER_2.0.7"  // 에러처리 부분을 강화 하였다. 
+#define version "VER_2.0.8"  // 데이타의 변화가 있는경우에 로그를 기록한다. 아니면 1시간 마다 로그를 기록한다.
+//efine version "VER_2.0.7"  // 에러처리 부분을 강화 하였다. 
 //#define version "VER_2.0.6"  // 8D가 아니었다.  이것은 마스킹 비트였다.
 //#define version "VER_2.0.5"  // 현장 디버깅..통신 루핑시간을 늘려준다. 
 //#define version "VER_2.0.4"  // 왜곡된 8D -> 0D 데이터를 보정하는 기능을 추가함 
