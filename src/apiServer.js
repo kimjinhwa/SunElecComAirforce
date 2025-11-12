@@ -95,7 +95,9 @@ app.get('/api/battery', (req, res) => {
     //   console.log("batteryData.summary-------------->", batteryData.summary);
     // }
     
-    if (!batteryData || !batteryData.devices || batteryData.summary?.success == 0 ) 
+    // batteryData나 devices가 없거나 비어있는 경우에만 에러 반환
+    // 실패한 모듈이 있어도 데이터는 반환해야 함
+    if (!batteryData || !batteryData.devices || Object.keys(batteryData.devices).length === 0) 
     {
       return res.status(404).json({ 
         error: 'Battery data not available',
@@ -127,9 +129,15 @@ app.get('/api/battery', (req, res) => {
             data: device.data.map(value => Number(value))
           };
         } else {
+          // 실패한 경우에도 51개의 0으로 채운 data 배열 포함
+          const defaultData = device?.data && Array.isArray(device.data) 
+            ? device.data.map(value => Number(value))
+            : new Array(51).fill(0);
+          
           responseData.data.multi_data.devices[moduleNo] = {
             status: 'failed',
-            error: device?.error || 'No data available'
+            error: device?.error || 'No data available',
+            data: defaultData
           };
         }
       });

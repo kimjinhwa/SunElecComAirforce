@@ -329,9 +329,27 @@ class DataBaseConnect {
       for (const module of moduleResult) {
         loggerWinston.info('module-------------->'+
           JSON.stringify(module));
+        // multi_data[module${module.moduleno}]가 없거나 result가 없으면 기본값 처리
+        const moduleData = multi_data[`module${module.moduleno}`];
+        if (!moduleData || !moduleData.result) {
+          loggerWinston.warn(`[DataBase] 모듈 ${module.moduleno} 데이터가 없습니다. 기본값으로 처리합니다.`);
+          // 기본값으로 처리 (실패 상태)
+          batteryData.Voltage = 0.0;
+          batteryData.Temperature = 0.0;
+          batteryData.Ampere = 0.0;
+          batteryData.totalVoltage = 0.0;
+          batteryData.SOC = 0.0;
+          for (let batNum = 1; batNum <= module.installedbat; batNum++) {
+            await client.query(InsertLogQuery, [currentTime, module.rackno, module.moduleno, batNum,
+              batteryData.Voltage, batteryData.Impedance, batteryData.Ampere,
+              batteryData.Temperature, batteryData.SOC, batteryData.State, batteryData.totalVoltage]);
+          }
+          continue;
+        }
+        
         loggerWinston.info('multi_data.devices[module.moduleno]-------------->'+
-          JSON.stringify(multi_data[`module${module.moduleno}`].result.status));
-        if (multi_data[`module${module.moduleno}`].result.status == 'success') // 모듈 데이터 읽기 성공
+          JSON.stringify(moduleData.result.status));
+        if (moduleData.result.status == 'success') // 모듈 데이터 읽기 성공
         {
           for (let batNum = 1; batNum <= module.installedbat; batNum++) {
             AmpereModuleOne = multi_data[`module${module.moduleno}`].packInfo.CurrentValue;

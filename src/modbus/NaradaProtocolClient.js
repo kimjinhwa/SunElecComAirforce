@@ -444,6 +444,7 @@ class NaradaProtocolClient {
      * @returns {Object} 기본 데이터
      */
     createDefaultData(packNumber) {
+
         return {
             packNumber: packNumber,
             cellVoltages: new Array(15).fill(0),
@@ -455,7 +456,8 @@ class NaradaProtocolClient {
             readCycleCount: 0,
             totalVoltage: 0,
             soh: 0,
-            bmsProtectStatus: 0
+            bmsProtectStatus: 0,
+            isValid: false  // 실패 플래그
         };
     }
 

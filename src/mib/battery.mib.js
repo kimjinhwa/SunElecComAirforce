@@ -355,27 +355,242 @@ class BatteryMib {
         }
 
         try {
-            const moduleData = await this.modbusReader.readAllModulesData();
+            let moduleData = await this.modbusReader.readAllModulesData();
+            
+            // readAllModulesData가 null을 반환하거나 빈 객체인 경우, multi_data.devices에서 데이터 가져오기
+            if (!moduleData || Object.keys(moduleData).length === 0) {
+                // multi_data.devices에서 데이터를 moduleData 형식으로 변환
+                if (this.modbusReader && this.modbusReader.multi_data && this.modbusReader.multi_data.devices) {
+                    moduleData = this.convertDevicesToModuleData(this.modbusReader.multi_data.devices);
+                }
+            }
+            // moduleData가 여전히 없거나 비어있으면 기본값으로 업데이트
+
+            if (!moduleData || Object.keys(moduleData).length === 0) {
+                loggerWinston.warn('[Battery MIB] moduleData가 비어있어 기본값으로 업데이트합니다.');
+                moduleData = this.createDefaultModuleData();
+            }
+            
+            // moduleData의 키가 올바른지 확인 (module39, module40 형식이어야 함)
+            const moduleKeys = Object.keys(moduleData);
+            if (moduleKeys.length > 0) {
+                const firstKey = moduleKeys[0];
+                const modbusModuleId = parseInt(firstKey.replace('module', ''));
+                if (modbusModuleId < 39 || modbusModuleId > 46) {
+                    loggerWinston.error(`[Battery MIB] 잘못된 moduleData 키 발견: ${firstKey}, modbusModuleId: ${modbusModuleId}. 기본값으로 재생성합니다.`);
+                    moduleData = this.createDefaultModuleData();
+                }
+            }
             
             // 각 모듈의 데이터를 SNMP OID에 매핑
             for (const [moduleKey, data] of Object.entries(moduleData)) {
               //console.log("data",data);
                 const modbusModuleId = parseInt(moduleKey.replace('module', ''));
                 // Modbus ID 39-46을 SNMP 모듈 ID 1-8로 변환 
-                const snmpModuleId = modbusModuleId ; // 39 -> 1, 40 -> 2, ...
+                if (modbusModuleId < 39 || modbusModuleId > 46) {
+                    loggerWinston.warn(`[Battery MIB] 잘못된 modbusModuleId: ${modbusModuleId}, 건너뜁니다.`);
+                    continue;
+                }
+                const snmpModuleId = modbusModuleId - 38; // 39 -> 1, 40 -> 2, ...
+                if (snmpModuleId < 1 || snmpModuleId > 8) {
+                    loggerWinston.warn(`[Battery MIB] 잘못된 snmpModuleId: ${snmpModuleId}, 건너뜁니다.`);
+                    continue;
+                }
                 this.updateModuleSnmpValues(snmpModuleId, data);
             }
             await this.checkDisChargeStatus(moduleData);
-            dataBaseConnect.logBatteryData(moduleData, this.disChargeStatus);
+            // logBatteryData는 multi_data 형식을 기대하므로 moduleData를 multi_data 형식으로 변환
+            const multiDataForLogging = this.convertModuleDataToMultiData(moduleData);
+            dataBaseConnect.logBatteryData(multiDataForLogging, this.disChargeStatus);
             loggerWinston.info('[Battery MIB] SNMP values updated from Modbus');
         } catch (error) {
             loggerWinston.error('[Battery MIB] Modbus update failed:', error.message);
+            // 에러 발생 시에도 기본값으로 업데이트
+            try {
+                const defaultModuleData = this.createDefaultModuleData();
+                for (const [moduleKey, data] of Object.entries(defaultModuleData)) {
+                    const modbusModuleId = parseInt(moduleKey.replace('module', ''));
+                    const snmpModuleId = modbusModuleId - 38; // 39 -> 1, 40 -> 2, ...
+                    this.updateModuleSnmpValues(snmpModuleId, data);
+                }
+            } catch (fallbackError) {
+                loggerWinston.error('[Battery MIB] 기본값 업데이트도 실패:', fallbackError.message);
+            }
         }
     }
+    /**
+     * multi_data.devices를 moduleData 형식으로 변환
+     * @param {Object} devices - multi_data.devices 객체
+     * @returns {Object} moduleData 형식의 객체
+     */
+    convertDevicesToModuleData(devices) {
+        if (!devices || Object.keys(devices).length === 0) {
+            loggerWinston.warn('[Battery MIB] convertDevicesToModuleData: devices가 비어있습니다.');
+            return {};
+        }
+        
+        const moduleData = {};
+        
+        for (const [moduleNo, device] of Object.entries(devices)) {
+            const moduleId = parseInt(moduleNo);
+            
+            // moduleNo가 1-8 범위인지 확인
+            if (isNaN(moduleId) || moduleId < 1 || moduleId > 8) {
+                loggerWinston.warn(`[Battery MIB] convertDevicesToModuleData: 잘못된 moduleNo: ${moduleNo}, 건너뜁니다.`);
+                continue;
+            }
+            
+            const modbusModuleId = moduleId + 38; // 1 -> 39, 2 -> 40, ...
+            
+            if (device && device.data && Array.isArray(device.data) && device.data.length >= 51) {
+                // data 배열을 parsePackInfoData로 파싱
+                const result = {
+                    data: device.data,
+                    buffer: device.buffer || Buffer.from(device.data)
+                };
+                
+                try {
+                    const parsedData = this.modbusReader.parsePackInfoData(result);
+                    // parsePackInfoData는 packInfo 객체 없이 직접 필드를 반환하므로, readModuleData 형식으로 변환
+                    moduleData[`module${modbusModuleId}`] = {
+                        cellVoltages: parsedData.cellVoltages || [],
+                        packInfo: {
+                            packVoltage: parsedData.packVoltage,
+                            CurrentValue: parsedData.CurrentValue,
+                            remainingCapacity: parsedData.remainingCapacity,
+                            AverageCellTemp: parsedData.AverageCellTemp,
+                            AmbientTemp: parsedData.AmbientTemp,
+                            WarningFlag: parsedData.WarningFlag,
+                            ProtectionFlag: parsedData.ProtectionFlag,
+                            FaultStatus: parsedData.FaultStatus,
+                            SOC: parsedData.SOC,
+                            CirculateNumber: parsedData.CirculateNumber,
+                            SOH: parsedData.SOH,
+                            PCBTemp: parsedData.PCBTemp,
+                            HistoryDischargeCapacity: parsedData.HistoryDischargeCapacity,
+                            InstalledCellNumber: parsedData.InstalledCellNumber,
+                            TemperatureSensorNumber: parsedData.TemperatureSensorNumber,
+                            cellTemperatures: parsedData.cellTemperatures || [],
+                            FullCapacity: parsedData.FullCapacity,
+                            RemainChargeTime: parsedData.RemainChargeTime,
+                            RemainDischargeTime: parsedData.RemainDischargeTime,
+                            CellUVState: parsedData.CellUVState
+                        },
+                        alarms: {
+                            warningFlag: parsedData.WarningFlag || 0,
+                            protectionFlag: parsedData.ProtectionFlag || 0,
+                            faultStatus: parsedData.FaultStatus || 0
+                        },
+                        parameters: {},
+                        timestamp: new Date().toISOString(),
+                        result: parsedData.result || device
+                    };
+                } catch (error) {
+                    loggerWinston.warn(`[Battery MIB] 모듈 ${moduleId} 데이터 파싱 실패: ${error.message}`);
+                    // 파싱 실패 시 기본값 사용
+                    moduleData[`module${modbusModuleId}`] = this.createDefaultModuleDataForModule(modbusModuleId);
+                }
+            } else {
+                // 데이터가 없거나 유효하지 않은 경우 기본값 사용
+                moduleData[`module${modbusModuleId}`] = this.createDefaultModuleDataForModule(modbusModuleId);
+            }
+        }
+        
+        loggerWinston.info(`[Battery MIB] convertDevicesToModuleData: ${Object.keys(moduleData).length}개 모듈 변환 완료`);
+        return moduleData;
+    }
+
+    /**
+     * 기본 moduleData 생성 (모든 모듈에 대해)
+     * @returns {Object} 기본 moduleData
+     */
+    createDefaultModuleData() {
+        const moduleData = {};
+        const moduleCount = this.moduleCount || 8;
+        
+        for (let i = 1; i <= moduleCount; i++) {
+            const modbusModuleId = i + 38; // 1 -> 39, 2 -> 40, ...
+            moduleData[`module${modbusModuleId}`] = this.createDefaultModuleDataForModule(modbusModuleId);
+        }
+        
+        return moduleData;
+    }
+
+    /**
+     * 특정 모듈의 기본 데이터 생성
+     * @param {number} modbusModuleId - Modbus 모듈 ID (39-46)
+     * @returns {Object} 기본 모듈 데이터
+     */
+    createDefaultModuleDataForModule(modbusModuleId) {
+        return {
+            cellVoltages: new Array(16).fill(0),
+            packInfo: {
+                packVoltage: 0,
+                CurrentValue: 0,
+                remainingCapacity: 0,
+                AverageCellTemp: 0,
+                AmbientTemp: 0,
+                WarningFlag: 0,
+                ProtectionFlag: 0,
+                FaultStatus: 0,
+                SOC: 0,
+                CirculateNumber: 0,
+                SOH: 0,
+                PCBTemp: 0,
+                HistoryDischargeCapacity: 0,
+                InstalledCellNumber: 0,
+                TemperatureSensorNumber: 0,
+                cellTemperatures: new Array(16).fill(0),
+                FullCapacity: 0,
+                RemainChargeTime: 0,
+                RemainDischargeTime: 0,
+                CellUVState: 0
+            },
+            alarms: {
+                warningFlag: 0,
+                protectionFlag: 0,
+                faultStatus: 0
+            },
+            parameters: {},
+            timestamp: new Date().toISOString(),
+            result: {
+                status: 'failed',
+                error: '데이터 없음',
+                data: new Array(51).fill(0),
+                buffer: Buffer.alloc(102)
+            }
+        };
+    }
+    /**
+     * moduleData를 multi_data 형식으로 변환 (logBatteryData용)
+     * @param {Object} moduleData - moduleData 형식의 객체
+     * @returns {Object} multi_data 형식의 객체
+     */
+    convertModuleDataToMultiData(moduleData) {
+        const multiData = {};
+        
+        for (const [moduleKey, data] of Object.entries(moduleData)) {
+            // module39 -> 1, module40 -> 2, ...
+            const modbusModuleId = parseInt(moduleKey.replace('module', ''));
+            const moduleNo = modbusModuleId - 38; // 39 -> 1, 40 -> 2, ...
+            
+            if (moduleNo >= 1 && moduleNo <= 8) {
+                multiData[`module${moduleNo}`] = data;
+            }
+        }
+        
+        return multiData;
+    }
+
     async checkDisChargeStatus(moduleData) {
         // console.log("moduleData-------------->", moduleData);
         // console.log("checkDisChargeStatus-------------->", moduleData.module1.packInfo.CurrentValue);
-        this.chargeCurrent = (moduleData.module1.packInfo.CurrentValue-10000)*0.1;
+        // module1이 없거나 packInfo가 없으면 기본값 사용
+        if (moduleData && moduleData.module39 && moduleData.module39.packInfo && moduleData.module39.packInfo.CurrentValue !== undefined) {
+            this.chargeCurrent = (moduleData.module39.packInfo.CurrentValue-10000)*0.1;
+        } else {
+            this.chargeCurrent = 0;
+        }
         if(this.chargeCurrent < startDischargeCurrent) {
             // 방전 전류이고, 현재 상태가 부동충전이면 방전시작 
             if(this.disChargeStatus === disChargeTypes.FLOATING_CHARGE ||
@@ -577,7 +792,8 @@ class BatteryMib {
 
             loggerWinston.info(`[Battery MIB] 모듈 ${moduleId} SNMP 값 업데이트 완료`);
         } catch (error) {
-            loggerWinston.error(`[Battery MIB] 모듈 ${moduleId} SNMP 값 업데이트 실패:`, error.message);
+            loggerWinston.error(`[Battery MIB] 모듈 ${moduleId} SNMP 값 업데이트 실패:`, error.message || error.toString() || '알 수 없는 에러');
+            loggerWinston.error(`[Battery MIB] 에러 상세:`, error);
         }
     }
 

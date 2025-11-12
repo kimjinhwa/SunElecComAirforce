@@ -40,6 +40,7 @@ class BatteryModbusReader {
             maxConsecutiveFailures: 0
         };
         this.lastGoodPackByModule = new Map();
+        this.isReadingAllModules = false; // readAllModulesData 동시 실행 방지
         this.startStatsMonitoring();
     }
 
@@ -228,37 +229,44 @@ class BatteryModbusReader {
      * @returns {Promise<Object>} 모든 모듈의 데이터
      */
     async readAllModulesData() {
+        // 동시 실행 방지
+        if (this.isReadingAllModules) {
+            console.warn(`[BATCH] readAllModulesData가 이미 실행 중입니다. 이번 호출을 건너뜁니다.`);
+            return null;
+        }
+        
+        this.isReadingAllModules = true;
         const batchId = Math.random().toString(36).substring(2, 11);
         const startTime = Date.now();
         
-        //console.log(`[BATCH-${batchId}] 모든 모듈 데이터 읽기 시작 - 모듈 수: ${installedModuleCount}`);
-        
-        const results = [];
-        
-        // Narada 프로토콜은 시리얼 half-duplex 특성상 순차 읽기, Modbus는 병렬 허용
-        if (this.protocolType === 'narada') {
-            for (let moduleId = startModuleId; moduleId < startModuleId + installedModuleCount; moduleId++) {
-                console.log(`[BATCH-${batchId}] 모듈 ${moduleId} 순차 읽기 시작`);
-                const r = await this.readModuleData(moduleId);
-                results.push(r);
-                
-                // 모듈 간 요청 간격 (RS-485 안정성을 위해)
-                if (moduleId < startModuleId + installedModuleCount - 1) {
-                    await new Promise(resolve => setTimeout(resolve, 500)); // 100ms 대기
-                }
-            }
-        } else {
-            const promises = [];
-            for (let moduleId = startModuleId; moduleId < startModuleId + installedModuleCount; moduleId++) {
-                console.log(`[BATCH-${batchId}] 모듈 ${moduleId} 읽기 Promise 생성---------->`);
-                promises.push(this.readModuleData(moduleId));
-            }
-            //console.log(`[BATCH-${batchId}] ${promises.length}개 모듈 병렬 읽기 시작`);
-            const parallel = await Promise.all(promises);
-            results.push(...parallel);
-        }
-        
         try {
+            //console.log(`[BATCH-${batchId}] 모든 모듈 데이터 읽기 시작 - 모듈 수: ${installedModuleCount}`);
+            
+            const results = [];
+        
+            // Narada 프로토콜은 시리얼 half-duplex 특성상 순차 읽기, Modbus는 병렬 허용
+            if (this.protocolType === 'narada') {
+                for (let moduleId = startModuleId; moduleId < startModuleId + installedModuleCount; moduleId++) {
+                    console.log(`[BATCH-${batchId}] 모듈 ${moduleId} 순차 읽기 시작`);
+                    const r = await this.readModuleData(moduleId);
+                    results.push(r);
+                    
+                    // 모듈 간 요청 간격 (RS-485 안정성을 위해)
+                    if (moduleId < startModuleId + installedModuleCount - 1) {
+                        await new Promise(resolve => setTimeout(resolve, 500)); // 500ms 대기
+                    }
+                }
+            } else {
+                const promises = [];
+                for (let moduleId = startModuleId; moduleId < startModuleId + installedModuleCount; moduleId++) {
+                    console.log(`[BATCH-${batchId}] 모듈 ${moduleId} 읽기 Promise 생성---------->`);
+                    promises.push(this.readModuleData(moduleId));
+                }
+                //console.log(`[BATCH-${batchId}] ${promises.length}개 모듈 병렬 읽기 시작`);
+                const parallel = await Promise.all(promises);
+                results.push(...parallel);
+            }
+            
             const duration = Date.now() - startTime;
             
             //console.log(`[BATCH-${batchId}] 모든 모듈 읽기 완료 - 소요시간: ${duration}ms`);
@@ -267,18 +275,40 @@ class BatteryModbusReader {
             
             // 결과를 모듈별로 정리
             results.forEach((data, index) => {
-                const moduleId = index + startModuleId -38; // 39부터 시작
+                const moduleId = startModuleId + index; // 39부터 시작 (index=0 -> 39, index=1 -> 40)
                 moduleData[`module${moduleId}`] = data;
                 //console.log(`[BATCH-${batchId}] 모듈 ${moduleId} 데이터 정리 완료`);
                 this.multi_data.summary.total = installedModuleCount;
             });
             this.multi_data.summary.success = 0;
+            this.multi_data.summary.failed = 0;
             results.forEach((data, index) => {
-                data.result.status = 'success';
                 const moduleId = index + startModuleId -38; // 39부터 시작
+                
+                // result 객체가 없거나 status가 없는 경우 생성
+                if (!data.result) {
+                    console.warn(`[BATCH-${batchId}] 모듈 ${moduleId} result 객체 없음 - 실패 처리`);
+                    data.result = {
+                        status: 'failed',
+                        error: '데이터 읽기 실패 - result 객체 없음',
+                        data: new Array(51).fill(0),
+                        buffer: Buffer.alloc(102)
+                    };
+                } else if (!data.result.status) {
+                    // status가 없는 경우 성공으로 간주 (기존 동작 유지)
+                    data.result.status = 'success';
+                }
+                
+                // status에 따라 카운트 증가
+                if (data.result.status === 'success') {
+                    this.multi_data.summary.success++;
+                } else {
+                    this.multi_data.summary.failed++;
+                    console.warn(`[BATCH-${batchId}] 모듈 ${moduleId} 실패 - status: ${data.result.status}, error: ${data.result.error || 'N/A'}`);
+                }
+                
                 this.multi_data.timestamp = data.timestamp;
                 this.multi_data.devices[`${moduleId}`] = data.result;
-                this.multi_data.summary.success++;
             });
             //console.log("moduleData-------------->", this.multi_data);
             //console.log(`[BATCH-${batchId}] 모든 모듈 데이터 정리 완료 - 총 소요시간: ${Date.now() - startTime}ms`);
@@ -292,33 +322,12 @@ class BatteryModbusReader {
             const duration = Date.now() - startTime;
             console.error(`[BATCH-${batchId}] 모든 모듈 데이터 읽기 실패 - 소요시간: ${duration}ms, 에러: ${error.message}`);
             
-            // 부분적 실패 처리 - 성공한 모듈들만 반환
-            console.log(`[BATCH-${batchId}] 부분적 실패 처리 시도`);
-            const partialResults = [];
-            const moduleData = {};
-            
-            for (let i = 0; i < promises.length; i++) {
-                try {
-                    const result = await promises[i];
-                    const moduleId = i + startModuleId - 38;
-                    moduleData[`module${moduleId}`] = result;
-                    console.log(`[BATCH-${batchId}] 모듈 ${moduleId} 부분 성공`);
-                } catch (moduleError) {
-                    const moduleId = i + startModuleId - 38;
-                    console.error(`[BATCH-${batchId}] 모듈 ${moduleId} 부분 실패: ${moduleError.message}`);
-                }
-            }
-            
-            if (Object.keys(moduleData).length > 0) {
-                console.log(`[BATCH-${batchId}] 부분적 데이터 반환 - 성공한 모듈: ${Object.keys(moduleData).length}개`);
-                // 부분적 성공으로 간주
-                this.updateStats(true);
-                return moduleData;
-            } else {
-                // 완전 실패
-                this.updateStats(false);
-                throw error;
-            }
+            // 완전 실패
+            this.updateStats(false);
+            throw error;
+        } finally {
+            // 동시 실행 방지 플래그 해제
+            this.isReadingAllModules = false;
         }
     }
 
@@ -336,13 +345,72 @@ class BatteryModbusReader {
             
             const packData= await this.readPackDataInputRegister(moduleId);
 
-            // 유효성 검사 실패 시 마지막 정상값으로 대체
-            if (packData && packData.result && packData.result.data && packData.result.data.length >= 51) {
-                // 기본적으로 parsePackInfoData 성공 케이스
+            // 실패 상태인 경우 마지막 정상값으로 대체하지 않고 실패 상태 그대로 반환
+            if (packData && packData.result && packData.result.status === 'failed') {
+                console.warn(`[Narada] 모듈 ${moduleId} 데이터 읽기 실패 - 실패 상태 유지`);
+                // 실패 상태는 그대로 반환 (마지막 정상값으로 대체하지 않음)
+            } else if (packData && packData.result && packData.result.data && packData.result.data.length >= 51 && packData.result.status !== 'failed') {
+                // 성공 케이스: 마지막 정상값으로 저장
                 this.lastGoodPackByModule.set(moduleId, packData);
-            } else if (this.lastGoodPackByModule.has(moduleId)) {
+            } else if (this.lastGoodPackByModule.has(moduleId) && packData && packData.result && packData.result.status !== 'failed') {
+                // 유효하지 않은 데이터지만 실패가 아닌 경우에만 마지막 정상값으로 대체
                 console.warn(`[Narada] 모듈 ${moduleId} 유효하지 않은 데이터 -> 마지막 정상값으로 대체`);
                 return this.lastGoodPackByModule.get(moduleId);
+            }
+            
+            // result 객체가 없거나 유효하지 않은 경우 실패로 처리
+            if (!packData || !packData.result) {
+                console.error(`[Narada] 모듈 ${moduleId} result 객체 없음 - 실패 처리`);
+                if (!packData) {
+                    // packData 자체가 없는 경우 객체 생성
+                    return {
+                        cellVoltages: [],
+                        packInfo: {
+                            packVoltage: 0,
+                            CurrentValue: 0,
+                            remainingCapacity: 0,
+                            AverageCellTemp: 0,
+                            AmbientTemp: 0,
+                            WarningFlag: 0,
+                            ProtectionFlag: 0,
+                            FaultStatus: 0,
+                            SOC: 0,
+                            CirculateNumber: 0,
+                            SOH: 0,
+                            PCBTemp: 0,
+                            HistoryDischargeCapacity: 0,
+                            InstalledCellNumber: 0,
+                            TemperatureSensorNumber: 0,
+                            cellTemperatures: [],
+                            FullCapacity: 0,
+                            RemainChargeTime: 0,
+                            RemainDischargeTime: 0,
+                            CellUVState: 0
+                        },
+                        alarms: {
+                            warningFlag: 0,
+                            protectionFlag: 0,
+                            faultStatus: 0
+                        },
+                        parameters: {},
+                        timestamp: new Date().toISOString(),
+                        result: {
+                            status: 'failed',
+                            error: '데이터 읽기 실패 - result 객체 없음',
+                            data: new Array(51).fill(0),
+                            buffer: Buffer.alloc(102)
+                        }
+                    };
+                }
+                packData.result = {
+                    status: 'failed',
+                    error: '데이터 읽기 실패 - result 객체 없음',
+                    data: new Array(51).fill(0),
+                    buffer: Buffer.alloc(102)
+                };
+            } else if (!packData.result.status) {
+                // status가 없는 경우 성공으로 설정
+                packData.result.status = 'success';
             }
             //여기에서 이미 modbusResultData에 데이터가 추가되어 있음
 
@@ -381,7 +449,45 @@ class BatteryModbusReader {
             };
         } catch (error) {
             console.error(`모듈 ${moduleId} 데이터 읽기 실패:`, error.message);
-            throw error;
+            // 예외 발생 시 실패 상태로 반환
+            return {
+                cellVoltages: [],
+                packInfo: {
+                    packVoltage: 0,
+                    CurrentValue: 0,
+                    remainingCapacity: 0,
+                    AverageCellTemp: 0,
+                    AmbientTemp: 0,
+                    WarningFlag: 0,
+                    ProtectionFlag: 0,
+                    FaultStatus: 0,
+                    SOC: 0,
+                    CirculateNumber: 0,
+                    SOH: 0,
+                    PCBTemp: 0,
+                    HistoryDischargeCapacity: 0,
+                    InstalledCellNumber: 0,
+                    TemperatureSensorNumber: 0,
+                    cellTemperatures: [],
+                    FullCapacity: 0,
+                    RemainChargeTime: 0,
+                    RemainDischargeTime: 0,
+                    CellUVState: 0
+                },
+                alarms: {
+                    warningFlag: 0,
+                    protectionFlag: 0,
+                    faultStatus: 0
+                },
+                parameters: {},
+                timestamp: new Date().toISOString(),
+                result: {
+                    status: 'failed',
+                    error: error.message,
+                    data: new Array(51).fill(0),
+                    buffer: Buffer.alloc(102)
+                }
+            };
         }
     }
 
@@ -412,9 +518,18 @@ class BatteryModbusReader {
                 if (this.protocolType === 'narada') {
                     // Narada 프로토콜 사용
                     const naradaData = await this.modbusClient.getPackData(moduleId - 39); // 39-46을 0-7로 변환
+                    
+                    // 실패 플래그 확인 (isValid가 false이거나 undefined인 경우 실패로 처리)
+                    if (!naradaData || naradaData.isValid !== true) {
+                        console.error(`[Narada] 모듈 ${moduleId} 데이터 읽기 실패 - isValid: ${naradaData?.isValid}`);
+                        throw new Error('Narada 데이터 읽기 실패 - 기본값 반환됨');
+                    }
+                    
+                    const modbusData = NaradaDataParser.convertToModbusFormat(naradaData);
                     result = {
-                        data: NaradaDataParser.convertToModbusFormat(naradaData),
-                        buffer: Buffer.from(NaradaDataParser.convertToModbusFormat(naradaData))
+                        status: 'success',
+                        data: modbusData,
+                        buffer: Buffer.from(modbusData)
                     };
                     console.log(`[Narada] 파싱된 데이터2`, result);
                 } else {
@@ -435,6 +550,11 @@ class BatteryModbusReader {
                 // 데이터 유효성 검사
                 if (!result || !result.data || result.data.length < 51) {
                     throw new Error(`데이터 길이 불일치 - 예상: 51, 실제: ${result.data ? result.data.length : 0}`);
+                }
+                
+                // result 객체에 status가 없으면 성공으로 설정
+                if (!result.status) {
+                    result.status = 'success';
                 }
                 
                 // 51개 레지스터 데이터를 파싱
@@ -525,7 +645,13 @@ class BatteryModbusReader {
             FullCapacity: 0,
             RemainChargeTime: 0,
             RemainDischargeTime: 0,
-            CellUVState: 0
+            CellUVState: 0,
+            result: {
+                status: 'failed',
+                error: '데이터 읽기 실패 - 최대 재시도 횟수 초과',
+                data: new Array(51).fill(0),
+                buffer: Buffer.alloc(102)
+            }
         };
     }
     /**
@@ -572,6 +698,11 @@ class BatteryModbusReader {
         if (!data || data.length < 51) {
             console.warn('[Modbus] PackInfo 데이터가 부족합니다. 시뮬레이션 데이터를 사용합니다.');
             return this.generateSimulatedPackInfo(39); // 기본 모듈 ID
+        }
+
+        // result 객체에 status가 없으면 성공으로 설정
+        if (!result.status) {
+            result.status = 'success';
         }
 
         return {
