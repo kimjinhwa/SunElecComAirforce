@@ -388,7 +388,7 @@ class NaradaProtocolClient {
             case 6: // 배터리 팩 상태
                 parsedData.packStatus = this.makeIntArray(data, 5);
                 for(let i=0; i<parsedData.packStatus.length; i++){
-                    if(parsedData.packStatus[i] === 1){
+                    if(parsedData.packStatus[i] !== 0){
                         console.log(`[Narada]====> 팩 경보 상태: ${parsedData.packStatus[i]}`);
                     }
                 }
