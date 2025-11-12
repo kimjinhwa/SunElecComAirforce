@@ -370,7 +370,7 @@ class NaradaProtocolClient {
                 const rawCurrent = this.makeInt(data);
                 const currentInA = (30000 - rawCurrent) / 100.0; // A 단위, 소수점 2자리 (예: 10.50A)
                 parsedData.current = Math.round(currentInA * 10); // 0.1A 단위로 변환 (예: 10.5A -> 105)
-                console.log(`[Narada]====> 전류: 원본=${rawCurrent}, A단위=${currentInA}, 0.1A단위=${parsedData.current}`);
+                // console.log(`[Narada]====> 전류: 원본=${rawCurrent}, A단위=${currentInA}, 0.1A단위=${parsedData.current}`);
                 break;
             case 3: // SOC
                 parsedData.soc = this.makeInt(data);
@@ -380,11 +380,18 @@ class NaradaProtocolClient {
                 break;
             case 5: // 온도 (6개: 4개 셀 + 1개 PCB + 1개 주변)
                 const rawTemperatures = this.makeIntArray(data, 6);
+                rawTemperatures[4]=rawTemperatures[0];
+                rawTemperatures[5]=rawTemperatures[0];
                 // 온도 오프셋 50 제거
                 parsedData.temperatures = rawTemperatures.map(temp => temp - 50);
                 break;
             case 6: // 배터리 팩 상태
                 parsedData.packStatus = this.makeIntArray(data, 5);
+                for(let i=0; i<parsedData.packStatus.length; i++){
+                    if(parsedData.packStatus[i] === 1){
+                        console.log(`[Narada]====> 팩 경보 상태: ${parsedData.packStatus[i]}`);
+                    }
+                }
                 break;
             case 7: // 읽기 사이클 카운트
                 parsedData.readCycleCount = this.makeInt(data);
