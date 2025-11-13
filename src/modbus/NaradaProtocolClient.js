@@ -188,7 +188,7 @@ class NaradaProtocolClient {
      */
     async readSerialData() {
         return new Promise((resolve, reject) => {
-            const timeout = 3000; // 3초 타임아웃
+            const timeout = 500; // 0.5초 타임아웃 (존재하지 않는 모듈 빠른 실패)
             let dataBuffer = Buffer.alloc(0);
             let dataReceived = false;
 

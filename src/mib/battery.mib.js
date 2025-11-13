@@ -214,12 +214,12 @@ class BatteryMib {
         //this.updateSimulatedData();
 
         // this.updateFromModbus();
-        // 5초마다 데이터 업데이트
+        // 15초마다 데이터 업데이트 (존재하지 않는 모듈로 인한 지연 고려)
         setInterval(() => {
-            loggerWinston.info("startDataUpdate at every 5 seconds");
+            loggerWinston.info("startDataUpdate at every 15 seconds");
             //this.updateSimulatedData();
             this.updateFromModbus();
-        }, 10000);
+        }, 15000);
     }
 
     /**

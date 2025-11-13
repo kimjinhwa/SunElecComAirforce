@@ -250,10 +250,12 @@ class BatteryModbusReader {
                     console.log(`[BATCH-${batchId}] 모듈 ${moduleId} 순차 읽기 시작`);
                     const r = await this.readModuleData(moduleId);
                     results.push(r);
-                    
+                     
                     // 모듈 간 요청 간격 (RS-485 안정성을 위해)
+                    // 실패한 모듈의 경우 간격 단축
                     if (moduleId < startModuleId + installedModuleCount - 1) {
-                        await new Promise(resolve => setTimeout(resolve, 500)); // 500ms 대기
+                        const delay = results[results.length - 1]?.result?.status === 'failed' ? 200 : 500;
+                        await new Promise(resolve => setTimeout(resolve, delay)); // 실패 시 200ms, 성공 시 500ms
                     }
                 }
             } else {
@@ -511,7 +513,7 @@ class BatteryModbusReader {
         }
 
         let retryCount = 0;
-        const maxRetries = 3;
+        const maxRetries = 1; // 재시도 1번만 (존재하지 않는 모듈 빠른 실패)
         
         while (retryCount <= maxRetries) {
             try {
@@ -571,7 +573,7 @@ class BatteryModbusReader {
                 //console.error(`[SESSION-${sessionId}] 모듈 ${moduleId} PackInfo 읽기 실패 (시도 ${retryCount}/${maxRetries + 1}) - 소요시간: ${duration}ms, 에러: ${error.message}`);
                 
                 if (retryCount <= maxRetries) {
-                    const retryDelay = Math.min(1000 * retryCount, 3000); // 1초, 2초, 3초 대기
+                    const retryDelay = 500; // 500ms 대기 (빠른 재시도)
                     //console.log(`[SESSION-${sessionId}] ${retryDelay}ms 후 재시도...`);
                     await new Promise(resolve => setTimeout(resolve, retryDelay));
                 } else {
