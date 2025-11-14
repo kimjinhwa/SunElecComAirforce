@@ -37,13 +37,22 @@ class SerialManager {
         }
     }
     
-    async findDevicePort() {
-        try {
-            await fs.promises.access('/dev/ttyDevice485');
-            console.log('Device485가 올바른 포트에 연결되었습니다.');
-            return '/dev/ttyDevice485';
-        } catch (error) {
-            throw new Error('Device485가 올바른 포트에 연결되지 않았습니다.');
+    async findDevicePort(maxRetries = 5, retryDelay = 1000) {
+        const portPath = '/dev/ttyDevice485';
+        
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                await fs.promises.access(portPath);
+                console.log(`Device485가 올바른 포트에 연결되었습니다. (시도 ${attempt}/${maxRetries})`);
+                return portPath;
+            } catch (error) {
+                if (attempt < maxRetries) {
+                    console.log(`Device485 포트 찾기 시도 ${attempt}/${maxRetries} 실패. ${retryDelay}ms 후 재시도...`);
+                    await new Promise(resolve => setTimeout(resolve, retryDelay));
+                } else {
+                    throw new Error(`Device485가 올바른 포트에 연결되지 않았습니다. (${maxRetries}회 시도 실패)`);
+                }
+            }
         }
     }
     async connectDevicePort(portPath) {

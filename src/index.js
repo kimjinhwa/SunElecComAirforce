@@ -129,12 +129,20 @@ deviceClient.connect().then(async () => {
         deviceClient.setID(39);
     }
     
-    // BatteryMib에 ModbusReader 설정 및 초기 데이터 읽기 (비동기 대기)
-    await batteryMib.setModbusReader(deviceClient, protocolType);
-    
-    // API 서버에 BatteryMib 인스턴스 설정
+    // API 서버에 BatteryMib 인스턴스 설정 (먼저 설정하여 API 서버가 즉시 시작 가능)
     setBatteryMibInstance(batteryMib);
+    
+    // API 서버를 먼저 시작 (초기 데이터 읽기를 기다리지 않음)
     startApiServer();
+    console.log('API 서버가 시작되었습니다. 초기 데이터 읽기는 백그라운드에서 진행됩니다.');
+    
+    // BatteryMib에 ModbusReader 설정 및 초기 데이터 읽기 (백그라운드에서 비동기로 실행)
+    batteryMib.setModbusReader(deviceClient, protocolType).then(() => {
+        loggerWinston.info('[Battery MIB] 초기 데이터 읽기 완료 - API 서버가 데이터를 제공할 준비가 되었습니다.');
+    }).catch((error) => {
+        loggerWinston.error('[Battery MIB] 초기 데이터 읽기 실패:', error.message);
+    });
+    
     // 2초 후 주기적 데이터 업데이트 시작
     // setTimeout(() => {
     //     console.log('\n=== 주기적 배터리 데이터 읽기 및 SNMP 업데이트 시작 ===');
