@@ -224,7 +224,7 @@ class DataBaseConnect {
     try {
       let rackResult = await this.getRackData();
       if (rackResult.length === 0) {
-        await this.insertRackData(rackDatas);
+        await this.insertRackData(rackDatas[0]);
         rackResult = await this.getRackData();
       }
       // Module 정보 생성
@@ -275,11 +275,15 @@ class DataBaseConnect {
   async insertRackData(rackData) {
     const { rackno, installedmodule, totalbatno, rackname, installdate, expiredate, bat_type, nominalvoltage, highvoltage, lowvoltage, hightemperature, highimpedance, location } = rackData;
     const query = `INSERT INTO rack (rackno, installedmodule, totalbatno, rackname, installdate, expiredate, bat_type, nominalvoltage, highvoltage, lowvoltage, hightemperature, highimpedance, location) 
-                   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING rackno
-                   ON CONFLICT (rackno) DO NOTHING`;
+                   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+                   ON CONFLICT (rackno) DO NOTHING
+                   RETURNING rackno`;
     const values = [rackno, installedmodule, totalbatno, rackname, installdate, expiredate, bat_type, nominalvoltage, highvoltage, lowvoltage, hightemperature, highimpedance, location];
     const result = await this.pool.query(query, values);
-    return result.rows[0].rackno;
+    if (result.rows.length > 0) {
+      return result.rows[0].rackno;
+    }
+    return rackno; // ON CONFLICT로 인해 삽입되지 않은 경우 기존 rackno 반환
   }
   async updateRackData(rackData) {
     const { rackno, installedmodule, totalbatno, rackname, installdate, expiredate, bat_type, nominalvoltage, highvoltage, lowvoltage, hightemperature, highimpedance, location } = rackData;
