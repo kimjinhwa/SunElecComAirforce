@@ -1,4 +1,6 @@
-#define version "VER_2.0.10"  // 팩 경보 상태를 추가한다.
+#define version "VER_2.0.12"  // Fix Discharge Log Bug 
+//#define version "VER_2.0.11"  // docker compose에 환경변수를 추가한다.  
+//#define version "VER_2.0.10"  // 팩 경보 상태를 추가한다.
 //efine version "VER_2.0.9"  // 온도데이타의 잘못된 부분을 수정한다.
 //efine version "VER_2.0.8"  // 데이타의 변화가 있는경우에 로그를 기록한다. 아니면 1시간 마다 로그를 기록한다.
 //efine version "VER_2.0.7"  // 에러처리 부분을 강화 하였다. 

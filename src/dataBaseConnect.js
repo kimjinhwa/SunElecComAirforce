@@ -146,10 +146,17 @@ class DataBaseConnect {
     // 강제 기록 간격 (밀리초)
     this.forceLogInterval = parseInt(process.env.LOG_FORCE_INTERVAL || '3600000'); // 기본 1시간 (3600000ms)
     
+    // 방전 전류 임계값 (A 단위, 이 값보다 작으면 방전으로 판단)
+    this.dischargeCurrentThreshold = parseFloat(process.env.DISCHARGE_CURRENT_THRESHOLD || '-1.0'); // 기본 -1.0A
+    
+    // 방전 로그 최소 기록 간격 (밀리초)
+    this.dischargeLogInterval = parseInt(process.env.DISCHARGE_LOG_INTERVAL || '10000'); // 기본 10초 (10000ms)
+    
     // 이전 기록 데이터 저장 (모듈별)
     this.lastLoggedData = new Map(); // key: `${rackno}_${moduleno}_${batNum}`, value: {voltage, temperature, current, soc, totalVoltage}
     this.lastLogTime = new Map(); // key: `${rackno}_${moduleno}`, value: timestamp
-    
+    this.lastDischargeLogTime = new Map(); // key: `${rackno}_${moduleno}_${batNum}`, value: timestamp (방전 로그 기록 시간)
+     
     loggerWinston.info('[DataBase] 변화 감지 기반 로깅 설정:');
     loggerWinston.info(`  전압 임계값: ${this.logThresholds.voltage}V`);
     loggerWinston.info(`  온도 임계값: ${this.logThresholds.temperature}°C`);
@@ -157,6 +164,8 @@ class DataBaseConnect {
     loggerWinston.info(`  SOC 임계값: ${this.logThresholds.soc}%`);
     loggerWinston.info(`  총 전압 임계값: ${this.logThresholds.totalVoltage}V`);
     loggerWinston.info(`  강제 기록 간격: ${this.forceLogInterval / 1000 / 60}분`);
+    loggerWinston.info(`  방전 전류 임계값: ${this.dischargeCurrentThreshold}A`);
+    loggerWinston.info(`  방전 로그 최소 기록 간격: ${this.dischargeLogInterval / 1000}초`);
   }
 
   async initialize() {
@@ -398,7 +407,24 @@ class DataBaseConnect {
         State: state
       };
       insertCount = 0;
-      let AmpereModuleOne = 0.0;
+      let totalAmpere = 0.0; // 병렬 연결된 모든 성공한 모듈의 전류 합산값
+      
+      // 첫 번째 루프: 성공한 모듈들의 전류를 합산
+      for (const module of moduleResult) {
+        const moduleData = multi_data[`module${module.moduleno}`];
+        if (moduleData && moduleData.result && moduleData.result.status == 'success') {
+          let AmpereModuleOne = multi_data[`module${module.moduleno}`].packInfo.CurrentValue;
+          AmpereModuleOne = toInt16(AmpereModuleOne);
+          // 0.1A 단위로 변환 (오프셋 없음, 이미 30000 오프셋이 처리됨)
+          AmpereModuleOne /= 10.0;
+          totalAmpere += AmpereModuleOne; // 성공한 모듈의 전류를 합산
+          loggerWinston.info(`[DataBase] 모듈 ${module.moduleno} 전류 합산: ${AmpereModuleOne.toFixed(2)}A, 누적 합계: ${totalAmpere.toFixed(2)}A`);
+        }
+      }
+      
+      loggerWinston.info(`[DataBase] 병렬 연결 모듈 총 전류 합산: ${totalAmpere.toFixed(2)}A`);
+      
+      // 두 번째 루프: 각 모듈의 배터리 데이터를 저장 (합산된 전류 사용)
       for (const module of moduleResult) {
         loggerWinston.info('module-------------->'+
           JSON.stringify(module));
@@ -409,26 +435,40 @@ class DataBaseConnect {
           // 기본값으로 처리 (실패 상태)
           batteryData.Voltage = 0.0;
           batteryData.Temperature = 0.0;
-          batteryData.Ampere = 0.0;
+          batteryData.Ampere = totalAmpere; // 합산된 전류 사용
           batteryData.totalVoltage = 0.0;
           batteryData.SOC = 0.0;
+          batteryData.Impedance = 0.0;
           for (let batNum = 1; batNum <= module.installedbat; batNum++) {
             await client.query(InsertLogQuery, [currentTime, module.rackno, module.moduleno, batNum,
               batteryData.Voltage, batteryData.Impedance, batteryData.Ampere,
               batteryData.Temperature, batteryData.SOC, batteryData.State, batteryData.totalVoltage]);
+            // 방전 중이면 방전 로그도 기록 (임계값 체크 및 최소 간격 체크)
+            const dischargeKey = `${module.rackno}_${module.moduleno}_${batNum}`;
+            const lastDischargeTime = this.lastDischargeLogTime.get(dischargeKey) || 0;
+            const now = Date.now();
+            
+            if(totalAmpere < this.dischargeCurrentThreshold) {
+              // 최소 기록 간격이 경과했거나 첫 기록인 경우에만 방전 로그 기록
+              if (now - lastDischargeTime >= this.dischargeLogInterval || lastDischargeTime === 0) {
+                await client.query(InsertDischargeLogQuery, [currentTime, module.rackno, module.moduleno, batNum,
+                  batteryData.Voltage, batteryData.Impedance, batteryData.Ampere,
+                  batteryData.Temperature, batteryData.SOC, batteryData.State, batteryData.totalVoltage]);
+                this.lastDischargeLogTime.set(dischargeKey, now);
+                loggerWinston.info(`[DataBase] 방전 로그 기록: 모듈${module.moduleno} 배터리${batNum}, 전류: ${totalAmpere.toFixed(2)}A`);
+              } else {
+                loggerWinston.debug(`[DataBase] 방전 로그 기록 건너뜀 (최소 간격 미경과): 모듈${module.moduleno} 배터리${batNum}, 경과: ${Math.round((now - lastDischargeTime) / 1000)}초`);
+              }
+            }
           }
           continue;
         }
-        
+         
         loggerWinston.info('multi_data.devices[module.moduleno]-------------->'+
           JSON.stringify(moduleData.result.status));
         if (moduleData.result.status == 'success') // 모듈 데이터 읽기 성공
         {
           for (let batNum = 1; batNum <= module.installedbat; batNum++) {
-            AmpereModuleOne = multi_data[`module${module.moduleno}`].packInfo.CurrentValue;
-            AmpereModuleOne = toInt16(AmpereModuleOne);
-            // 0.1A 단위로 변환 (오프셋 없음, 이미 30000 오프셋이 처리됨)
-            AmpereModuleOne /= 10.0;
             batteryData.Voltage = multi_data[`module${module.moduleno}`].cellVoltages[batNum - 1];
             batteryData.Voltage /= 1000.0;
             batteryData.SOC = multi_data[`module${module.moduleno}`].packInfo.SOC;
@@ -440,7 +480,7 @@ class DataBaseConnect {
               batteryData.Temperature = -35;
             }
             batteryData.Impedance = 0.0;
-            batteryData.Ampere = AmpereModuleOne;
+            batteryData.Ampere = totalAmpere; // 병렬 연결된 모든 모듈의 합산 전류 사용
             batteryData.totalVoltage = multi_data[`module${module.moduleno}`].packInfo.packVoltage;
             batteryData.totalVoltage /= 100.0;
             
@@ -471,6 +511,24 @@ class DataBaseConnect {
             } else {
               loggerWinston.debug(`[DataBase] 변화 없음, 기록 건너뜀: 모듈${module.moduleno} 배터리${batNum}`);
             }
+            
+            // 방전 중이면 일반 로그 기록과 관계없이 주기적으로 방전 로그 기록 (임계값 체크 및 최소 간격 체크)
+            if(totalAmpere < this.dischargeCurrentThreshold || state == 5 || state == 6 || state == 7) {
+              const dischargeKey = `${module.rackno}_${module.moduleno}_${batNum}`;
+              const lastDischargeTime = this.lastDischargeLogTime.get(dischargeKey) || 0;
+              const now = Date.now();
+              
+              // 최소 기록 간격이 경과했거나 첫 기록인 경우에만 방전 로그 기록
+              if (now - lastDischargeTime >= this.dischargeLogInterval || lastDischargeTime === 0) {
+                await client.query(InsertDischargeLogQuery, [currentTime, module.rackno, module.moduleno, batNum,
+                  batteryData.Voltage, batteryData.Impedance, batteryData.Ampere,
+                  batteryData.Temperature, batteryData.SOC, batteryData.State, batteryData.totalVoltage]);
+                this.lastDischargeLogTime.set(dischargeKey, now);
+                loggerWinston.info(`[DataBase] 방전 로그 기록: 모듈${module.moduleno} 배터리${batNum}, 전류: ${totalAmpere.toFixed(2)}A`);
+              } else {
+                loggerWinston.debug(`[DataBase] 방전 로그 기록 건너뜀 (최소 간격 미경과): 모듈${module.moduleno} 배터리${batNum}, 경과: ${Math.round((now - lastDischargeTime) / 1000)}초`);
+              }
+            }
 
             await this.checkAndLogAlarms(currentTime, module.rackno, module.moduleno, batNum, batteryData, rackInfo);
           }
@@ -478,7 +536,7 @@ class DataBaseConnect {
         else {
           batteryData.Voltage = 0.0;
           batteryData.Temperature = 0.0;
-          batteryData.Ampere = 0.0;
+          batteryData.Ampere = totalAmpere; // 합산된 전류 사용
           batteryData.totalVoltage = 0.0;
           batteryData.SOC = 0.0;
           batteryData.Impedance = 0.0;
@@ -488,10 +546,22 @@ class DataBaseConnect {
             [currentTime, module.rackno, module.moduleno, batNum,
               batteryData.Voltage, batteryData.Impedance, batteryData.Ampere,
               batteryData.Temperature, batteryData.SOC, batteryData.State, batteryData.totalVoltage]);
-            if(AmpereModuleOne < 0) {
-              await client.query(InsertDischargeLogQuery, [currentTime, module.rackno, module.moduleno, batNum,
-                batteryData.Voltage, batteryData.Impedance, batteryData.Ampere,
-                batteryData.Temperature, batteryData.SOC, batteryData.State, batteryData.totalVoltage]);
+            // 방전 중이면 방전 로그도 기록 (임계값 체크 및 최소 간격 체크)
+            const dischargeKey = `${module.rackno}_${module.moduleno}_${batNum}`;
+            const lastDischargeTime = this.lastDischargeLogTime.get(dischargeKey) || 0;
+            const now = Date.now();
+            
+            if(totalAmpere < this.dischargeCurrentThreshold) {
+              // 최소 기록 간격이 경과했거나 첫 기록인 경우에만 방전 로그 기록
+              if (now - lastDischargeTime >= this.dischargeLogInterval || lastDischargeTime === 0) {
+                await client.query(InsertDischargeLogQuery, [currentTime, module.rackno, module.moduleno, batNum,
+                  batteryData.Voltage, batteryData.Impedance, batteryData.Ampere,
+                  batteryData.Temperature, batteryData.SOC, batteryData.State, batteryData.totalVoltage]);
+                this.lastDischargeLogTime.set(dischargeKey, now);
+                loggerWinston.info(`[DataBase] 방전 로그 기록: 모듈${module.moduleno} 배터리${batNum}, 전류: ${totalAmpere.toFixed(2)}A`);
+              } else {
+                loggerWinston.debug(`[DataBase] 방전 로그 기록 건너뜀 (최소 간격 미경과): 모듈${module.moduleno} 배터리${batNum}, 경과: ${Math.round((now - lastDischargeTime) / 1000)}초`);
+              }
             }
           }
         }

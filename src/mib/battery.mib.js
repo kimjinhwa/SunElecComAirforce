@@ -17,8 +17,9 @@ const disChargeTypes= {
     DISCHARGE_IN_PROGRESS:6,
     DISCHARGE_COMPLETE:7,
 }
-const startDischargeCurrent = -8.0; // 방전 시작 전류
-const endDischargeCurrent = -4.0; // 방전 종료 전류
+// 방전 시작/종료 전류 임계값 (환경변수로 설정 가능, 기본값 사용)
+const startDischargeCurrent = parseFloat(process.env.DISCHARGE_CURRENT_THRESHOLD || '-1.0'); // 방전 시작 전류 (기본 -1.0A)
+const endDischargeCurrent = parseFloat(process.env.DISCHARGE_END_CURRENT_THRESHOLD || '0.0'); // 방전 종료 전류 (기본 0.0A)
 const startChargeCurrent = 4.0; // 충전 시작 전류
 
 class BatteryMib {
@@ -603,42 +604,70 @@ class BatteryMib {
     }
 
     async checkDisChargeStatus(moduleData) {
-        // console.log("moduleData-------------->", moduleData);
-        // console.log("checkDisChargeStatus-------------->", moduleData.module1.packInfo.CurrentValue);
-        // module1이 없거나 packInfo가 없으면 기본값 사용
-        if (moduleData && moduleData.module39 && moduleData.module39.packInfo && moduleData.module39.packInfo.CurrentValue !== undefined) {
-            this.chargeCurrent = (moduleData.module39.packInfo.CurrentValue-10000)*0.1;
-        } else {
-            this.chargeCurrent = 0;
+        // 병렬 연결된 모든 성공한 모듈의 전류 합산
+        let totalCurrent = 0.0;
+        
+        // moduleData의 모든 모듈을 순회하며 전류 합산
+        for (const [moduleKey, data] of Object.entries(moduleData)) {
+            // result.status 또는 직접 status 확인
+            const status = (data && data.result && data.result.status) || (data && data.status);
+            if (data && data.packInfo && data.packInfo.CurrentValue !== undefined && status === 'success') {
+                // CurrentValue를 전류로 변환 (toInt16 처리 후 0.1A 단위로 변환)
+                let moduleCurrent = data.packInfo.CurrentValue;
+                // toInt16 처리 (음수 처리)
+                const int16 = moduleCurrent & 0xFFFF;
+                moduleCurrent = int16 > 0x7FFF ? int16 - 0x10000 : int16;
+                // 0.1A 단위로 변환
+                moduleCurrent /= 10.0;
+                totalCurrent += moduleCurrent;
+                loggerWinston.debug(`[Battery MIB] 모듈 ${moduleKey} 전류 합산: ${moduleCurrent.toFixed(2)}A, 누적: ${totalCurrent.toFixed(2)}A`);
+            }
         }
+        
+        this.chargeCurrent = totalCurrent;
+        const previousStatus = this.disChargeStatus;
+        
+        // 디버그: 전류와 상태 로그 (항상 출력)
+        loggerWinston.info(`[Battery MIB] checkDisChargeStatus: 전류=${this.chargeCurrent.toFixed(2)}A, 현재상태=${this.disChargeStatus}, 임계값=${startDischargeCurrent}A`);
+        
+        // 방전 중인지 확인 (전류가 임계값보다 작으면 방전)
         if(this.chargeCurrent < startDischargeCurrent) {
-            // 방전 전류이고, 현재 상태가 부동충전이면 방전시작 
+            // 방전 전류이고, 현재 상태가 부동충전/충전 상태면 방전시작
             if(this.disChargeStatus === disChargeTypes.FLOATING_CHARGE ||
                 this.disChargeStatus === disChargeTypes.CHARGE_START ||
-                this.disChargeStatus === disChargeTypes.CHARGE_IN_PROGRESS
+                this.disChargeStatus === disChargeTypes.CHARGE_IN_PROGRESS ||
+                this.disChargeStatus === disChargeTypes.CHARGE_COMPLETE
             ) {
                 this.disChargeStatus = disChargeTypes.DISCHARGE_START;
             }
-            // 방전 전류이고, 현재 상태가 방전시작이면 방전중
-            if(this.disChargeStatus === disChargeTypes.DISCHARGE_START) {
+            // 방전 전류이고, 현재 상태가 방전시작이면 다음 주기에 방전중으로 변경
+            // (DISCHARGE_START 상태를 최소 한 주기 유지하기 위해 else if 사용)
+            else if(this.disChargeStatus === disChargeTypes.DISCHARGE_START) {
                 this.disChargeStatus = disChargeTypes.DISCHARGE_IN_PROGRESS;
             }
-            // 방전 전류이고, 현재 상태가 방전중이면 방전중
-            if(this.disChargeStatus === disChargeTypes.DISCHARGE_IN_PROGRESS) {
+            // 방전 전류이고, 현재 상태가 방전중이면 방전중 유지
+            else if(this.disChargeStatus === disChargeTypes.DISCHARGE_IN_PROGRESS) {
                 this.disChargeStatus = disChargeTypes.DISCHARGE_IN_PROGRESS;
             }
-        } else if(this.chargeCurrent > endDischargeCurrent ){
+        } else if(this.chargeCurrent >= endDischargeCurrent ){
+            // 방전 종료: 방전중이면 방전완료로 변경
             if(this.disChargeStatus === disChargeTypes.DISCHARGE_IN_PROGRESS) {
                 this.disChargeStatus = disChargeTypes.DISCHARGE_COMPLETE;
             }
+            // 방전완료 상태면 다음 주기에 부동충전으로 변경
             else if(this.disChargeStatus === disChargeTypes.DISCHARGE_COMPLETE) {
                 this.disChargeStatus = disChargeTypes.FLOATING_CHARGE;
             }
+            // 그 외 상태면 부동충전으로 변경
             else {
                 this.disChargeStatus = disChargeTypes.FLOATING_CHARGE;
             }
-        } 
-        //console.log("checkDisChargeStatus-------------->", this.disChargeStatus);
+        }
+        
+        // 상태가 변경되었을 때만 로그 출력
+        if(previousStatus !== this.disChargeStatus) {
+            loggerWinston.info(`[Battery MIB] 방전 상태 변경: ${previousStatus} -> ${this.disChargeStatus}, 전류: ${this.chargeCurrent.toFixed(2)}A`);
+        }
     }
     /**
      * 사용 가능한 OID 목록 반환
