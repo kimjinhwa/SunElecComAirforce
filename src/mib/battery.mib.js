@@ -99,6 +99,7 @@ class BatteryMib {
             const oid = `${baseOid}.2.${index}`;
             const providerName = `mod${moduleId}${name.charAt(0).toUpperCase() + name.slice(1)}`;
             
+            
             // 온도 및 전류 관련 OID는 Integer32, 나머지는 Unsigned32
             const isTemperature = name === 'avgTemp' || name === 'ambTemp';
             const isCurrent = name === 'chargeCurrent' || name === 'dischargeCurrent';
@@ -120,11 +121,18 @@ class BatteryMib {
         const alarmOids = [
             { index: 1, name: 'cellOvervoltageAlarms', key: 'cellOvervoltageAlarms' },
             { index: 2, name: 'cellUndervoltageAlarms', key: 'cellUndervoltageAlarms' },
+            { index: 3, name: 'tempChargeOverheatAlarms', key: 'tempChargeOverheatAlarms' },
+            { index: 4, name: 'tempChargeUnderheatAlarms', key: 'tempChargeUnderheatAlarms' },
+            { index: 5, name: 'tempDischargeOverheatAlarms', key: 'tempDischargeOverheatAlarms' },
+            { index: 6, name: 'tempDischargeUnderheatAlarms', key: 'tempDischargeUnderheatAlarms' },
             { index: 7, name: 'packOvervoltageAlarm', key: 'packOvervoltageAlarm' },
             { index: 8, name: 'packUndervoltageAlarm', key: 'packUndervoltageAlarm' },
             { index: 9, name: 'chargeOvercurrentAlarm', key: 'chargeOvercurrentAlarm' },
             { index: 10, name: 'dischargeOvercurrentAlarm', key: 'dischargeOvercurrentAlarm' },
-            { index: 11, name: 'socLowAlarm', key: 'socLowAlarm' }
+            { index: 11, name: 'socLowAlarm', key: 'socLowAlarm' },
+            { index: 12, name: 'ratedCapacityAlarm', key: 'ratedCapacityAlarm' },
+            { index: 13, name: 'remainingCapacityAlarm', key: 'remainingCapacityAlarm' },
+            { index: 14, name: 'runningStateAlarm', key: 'runningStateAlarm' }
         ];
 
         alarmOids.forEach(({ index, name, key }) => {
@@ -149,7 +157,13 @@ class BatteryMib {
             { index: 2, name: 'cellOvervoltageAlarmRecovery', key: 'cellOvervoltageAlarmRecovery' },
             { index: 3, name: 'cellUndervoltageAlarmValue', key: 'cellUndervoltageAlarmValue' },
             { index: 4, name: 'cellUndervoltageAlarmRecovery', key: 'cellUndervoltageAlarmRecovery' },
-            { index: 6, name: 'socLowAlarmValue', key: 'socLowAlarmValue' }
+            { index: 5, name: 'reserved5', key: 'reserved5' }, // 예약된 인덱스
+            { index: 6, name: 'socLowAlarmValue', key: 'socLowAlarmValue' },
+            { index: 7, name: 'reserved7', key: 'reserved7' }, // 예약된 인덱스
+            { index: 8, name: 'reserved8', key: 'reserved8' }, // 예약된 인덱스
+            { index: 9, name: 'chargeOvercurrentAlarm', key: 'chargeOvercurrentAlarm' }, // 충전 과전류 알람
+            { index: 10, name: 'dischargeOvercurrentAlarm', key: 'dischargeOvercurrentAlarm' }, // 방전 과전류 알람
+            { index: 11, name: 'socLowAlarm', key: 'socLowAlarm' } // SOC 저알람
         ];
 
         parameterOids.forEach(({ index, name, key }) => {
@@ -754,37 +768,56 @@ class BatteryMib {
             if (moduleData.packInfo) {
                 const packInfo = moduleData.packInfo;
                 
-                // 최대 셀 전압 (mV 단위) - 처음 15개만 사용
-                const maxVoltage = moduleData.cellVoltages && moduleData.cellVoltages.length > 0 
-                    ? Math.max(...moduleData.cellVoltages.slice(0, 15)) 
+                // 온도 센서 1을 팩 정보 OID index 1에 매핑 (.1.3.6.1.4.1.64016.{moduleId}.2.1)
+                // 온도는 0.1°C 단위이고 -400 오프셋이 있으므로 (590 - 400) / 10 = 19.0°C
+                const tempSensor1 = moduleData.packInfo && moduleData.packInfo.cellTemperatures && moduleData.packInfo.cellTemperatures.length > 0
+                    ? (moduleData.packInfo.cellTemperatures[0] || 0) - 400  // 0.1°C 단위로 변환
                     : 0;
-                this.mib.setScalarValue(`mod${moduleId}CellMaxVoltage`, maxVoltage);
+                const providerName1 = `mod${moduleId}CellMaxVoltage`;
+                this.mib.setScalarValue(providerName1, tempSensor1);
                 
-                // 최소 셀 전압 (mV 단위) - 처음 15개만 사용
-                const minVoltage = moduleData.cellVoltages && moduleData.cellVoltages.length > 0 
-                    ? Math.min(...moduleData.cellVoltages.slice(0, 15)) 
+                // 온도 센서 2를 팩 정보 OID index 2에 매핑 (.1.3.6.1.4.1.64016.{moduleId}.2.2)
+                const tempSensor2 = moduleData.packInfo && moduleData.packInfo.cellTemperatures && moduleData.packInfo.cellTemperatures.length > 1
+                    ? (moduleData.packInfo.cellTemperatures[1] || 0) - 400  // 0.1°C 단위로 변환
                     : 0;
-                this.mib.setScalarValue(`mod${moduleId}CellMinVoltage`, minVoltage);
+                const providerName2 = `mod${moduleId}CellMinVoltage`;
+                this.mib.setScalarValue(providerName2, tempSensor2);
                 
-                // avg voltage 
-                const aveVoltage = moduleData.cellVoltages && moduleData.cellVoltages.length > 0 
-                    ? Math.round(moduleData.cellVoltages.slice(0, 15).reduce((sum, voltage) => sum + voltage, 0) / 15)
+                // 온도 센서 3을 팩 정보 OID index 3에 매핑 (.1.3.6.1.4.1.64016.{moduleId}.2.3)
+                const tempSensor3 = moduleData.packInfo && moduleData.packInfo.cellTemperatures && moduleData.packInfo.cellTemperatures.length > 2
+                    ? (moduleData.packInfo.cellTemperatures[2] || 0) - 400  // 0.1°C 단위로 변환
                     : 0;
-                this.mib.setScalarValue(`mod${moduleId}CellAvgVoltage`, aveVoltage);
-                // avg temperature (0.1°C 단위: 25.0°C = 250)
-                let avgTemperature = moduleData.packInfo.AverageCellTemp ? moduleData.packInfo.AverageCellTemp - 400 : 0;
-                this.mib.setScalarValue(`mod${moduleId}AvgTemp`, avgTemperature);
+                const providerName3 = `mod${moduleId}CellAvgVoltage`;
+                this.mib.setScalarValue(providerName3, tempSensor3);
                 
-                // amb temperature (0.1°C 단위: 25.0°C = 250)
-                let ambTemperature = moduleData.packInfo.AmbientTemp ? moduleData.packInfo.AmbientTemp - 400 : 0;
-                this.mib.setScalarValue(`mod${moduleId}AmbTemp`, ambTemperature);
-                // total voltage
-                const totalVoltage = moduleData.packInfo && moduleData.packInfo.cellVoltages && moduleData.packInfo.cellVoltages.length > 0
-                    ? moduleData.packInfo.cellVoltages.slice(0, 15).reduce((sum, voltage) => sum + voltage, 0)
+                // 온도 센서 4를 팩 정보 OID index 4에 매핑 (.1.3.6.1.4.1.64016.{moduleId}.2.4)
+                const tempSensor4 = moduleData.packInfo && moduleData.packInfo.cellTemperatures && moduleData.packInfo.cellTemperatures.length > 3
+                    ? (moduleData.packInfo.cellTemperatures[3] || 0) - 400  // 0.1°C 단위로 변환
                     : 0;
-                this.mib.setScalarValue(`mod${moduleId}TotalVoltage`, totalVoltage);
-                // pack voltage
-                this.mib.setScalarValue(`mod${moduleId}PackVoltage`, moduleData.packInfo ? moduleData.packInfo.packVoltage || 0 : 0);
+                const providerName4 = `mod${moduleId}AvgTemp`;
+                this.mib.setScalarValue(providerName4, tempSensor4);
+                
+                // MOSFET Temperature 1을 팩 정보 OID index 5에 매핑 (.1.3.6.1.4.1.64016.{moduleId}.2.5)
+                const mosfetTemp1 = moduleData.packInfo && moduleData.packInfo.cellTemperatures && moduleData.packInfo.cellTemperatures.length > 4
+                    ? (moduleData.packInfo.cellTemperatures[4] || 0) - 400  // 0.1°C 단위로 변환
+                    : (moduleData.packInfo.PCBTemp ? moduleData.packInfo.PCBTemp - 400 : 0);
+                const providerName5 = `mod${moduleId}AmbTemp`;
+                this.mib.setScalarValue(providerName5, mosfetTemp1);
+                // Total Voltage를 팩 정보 OID index 6에 매핑 (.1.3.6.1.4.1.64016.{moduleId}.2.6)
+                // 셀 전압의 합계를 /10으로 나눈 값
+                const totalVoltageRawForPackInfo = moduleData.cellVoltages && moduleData.cellVoltages.length > 0
+                    ? moduleData.cellVoltages.slice(0, 15).reduce((sum, voltage) => sum + voltage, 0)
+                    : 0;
+                const totalVoltageForPackInfo = Math.round(totalVoltageRawForPackInfo / 10); // /10으로 나누기
+                const providerName6 = `mod${moduleId}TotalVoltage`;
+                this.mib.setScalarValue(providerName6, totalVoltageForPackInfo);
+                
+                // Ambient Temperature를 팩 정보 OID index 7에 매핑 (.1.3.6.1.4.1.64016.{moduleId}.2.7)
+                // AmbientTemp는 이미 0.1°C 단위이므로 -400 오프셋만 제거
+                const rawAmbTemp = moduleData.packInfo ? moduleData.packInfo.AmbientTemp : 0;
+                const ambTemperature = rawAmbTemp ? rawAmbTemp - 400 : 0;
+                const providerName7 = `mod${moduleId}PackVoltage`;
+                this.mib.setScalarValue(providerName7, ambTemperature);
                 
                 // Charge Current (0.01A 단위, -10000 오프셋)
                 let chargeCurrent = moduleData.packInfo && moduleData.packInfo.CurrentValue ? moduleData.packInfo.CurrentValue - 10000 : 0;
@@ -825,18 +858,155 @@ class BatteryMib {
                 // this.mib.setScalarValue(`mod${moduleId}PackrunningState`, packInfo.FaultStatus || 0);
             }
 
+            // 셀 전압 기반 OV 상태 계산 (과전압)
+            let cellOVState = 0;
+            // 셀 전압 기반 UV 상태 계산 (저전압)
+            let cellUVState = 0;
+            if (moduleData.cellVoltages && Array.isArray(moduleData.cellVoltages)) {
+                const ovThreshold = 3700; // 3700mV (과전압 임계값)
+                const uvThreshold = 3000; // 3000mV (저전압 임계값)
+                // 실제 설치된 셀 개수 확인 (기본값 15개)
+                const installedCellCount = moduleData.packInfo?.InstalledCellNumber || 15;
+                // 실제 셀 개수만큼만 체크 (인덱스 0부터 installedCellCount-1까지)
+                const cellCount = Math.min(installedCellCount, moduleData.cellVoltages.length);
+                
+                for (let index = 0; index < cellCount; index++) {
+                    const voltage = moduleData.cellVoltages[index];
+                    // 전압이 0이고 데이터 읽기 실패인 경우는 제외 (실제 0V가 아닌 경우)
+                    if (voltage > 0) {
+                        if (voltage > ovThreshold) {
+                            cellOVState |= (1 << index); // 과전압: 해당 셀의 비트를 1로 설정
+                        }
+                        if (voltage < uvThreshold) {
+                            cellUVState |= (1 << index); // 저전압: 해당 셀의 비트를 1로 설정
+                        }
+                    }
+                }
+            } else {
+                // 데이터 읽기 실패 시 OV/UV 상태는 0으로 유지
+            }
             // 알람 상태 업데이트
             if (moduleData.alarms) {
                 const alarms = moduleData.alarms;
                 
-                // 경고 플래그
-                this.mib.setScalarValue(`mod${moduleId}AlarmcellOvervoltageAlarms`, alarms.warningFlag || 0);
+                // CellMaxVoltage를 알람 OID index 1에 매핑 (.1.3.6.1.4.1.64016.{moduleId}.3.1)
+                const maxVoltage = moduleData.cellVoltages && moduleData.cellVoltages.length > 0 
+                    ? Math.max(...moduleData.cellVoltages.slice(0, 15)) 
+                    : 0;
+                this.mib.setScalarValue(`mod${moduleId}AlarmcellOvervoltageAlarms`, maxVoltage);
                 
-                // 보호 플래그
-                this.mib.setScalarValue(`mod${moduleId}AlarmcellUndervoltageAlarms`, alarms.protectionFlag || 0);
+                // CellMinVoltage를 알람 OID index 2에 매핑 (.1.3.6.1.4.1.64016.{moduleId}.3.2)
+                const minVoltage = moduleData.cellVoltages && moduleData.cellVoltages.length > 0 
+                    ? Math.min(...moduleData.cellVoltages.slice(0, 15)) 
+                    : 0;
+                this.mib.setScalarValue(`mod${moduleId}AlarmcellUndervoltageAlarms`, minVoltage);
                 
-                // 결함 상태
-                this.mib.setScalarValue(`mod${moduleId}AlarmpackOvervoltageAlarm`, alarms.faultStatus || 0);
+                // CellAvgVoltage를 알람 OID index 3에 매핑 (.1.3.6.1.4.1.64016.{moduleId}.3.3)
+                const aveVoltage = moduleData.cellVoltages && moduleData.cellVoltages.length > 0 
+                    ? Math.round(moduleData.cellVoltages.slice(0, 15).reduce((sum, voltage) => sum + voltage, 0) / 15)
+                    : 0;
+                this.mib.setScalarValue(`mod${moduleId}AlarmtempChargeOverheatAlarms`, aveVoltage);
+                
+                // AvgTemperature를 알람 OID index 4에 매핑 (.1.3.6.1.4.1.64016.{moduleId}.3.4)
+                const avgTemperature = moduleData.packInfo.AverageCellTemp ? moduleData.packInfo.AverageCellTemp - 400 : 0;
+                this.mib.setScalarValue(`mod${moduleId}AlarmtempChargeUnderheatAlarms`, avgTemperature);
+                
+                // AmbTemperature를 알람 OID index 5에 매핑 (.1.3.6.1.4.1.64016.{moduleId}.3.5)
+                const ambTemperature = moduleData.packInfo.AmbientTemp ? moduleData.packInfo.AmbientTemp - 400 : 0;
+                this.mib.setScalarValue(`mod${moduleId}AlarmtempDischargeOverheatAlarms`, ambTemperature);
+                
+                // TotalVoltage를 알람 OID index 6에 매핑 (.1.3.6.1.4.1.64016.{moduleId}.3.6)
+                const totalVoltage = moduleData.cellVoltages && moduleData.cellVoltages.length > 0
+                    ? moduleData.cellVoltages.slice(0, 15).reduce((sum, voltage) => sum + voltage, 0)
+                    : 0;
+                this.mib.setScalarValue(`mod${moduleId}AlarmtempDischargeUnderheatAlarms`, totalVoltage);
+                
+                // PackVoltage를 알람 OID index 7에 매핑 (.1.3.6.1.4.1.64016.{moduleId}.3.7)
+                const packVoltage = moduleData.packInfo ? moduleData.packInfo.packVoltage || 0 : 0;
+                this.mib.setScalarValue(`mod${moduleId}AlarmpackOvervoltageAlarm`, packVoltage);
+                
+                // ChargeCurrent를 알람 OID index 8에 매핑 (.1.3.6.1.4.1.64016.{moduleId}.3.8)
+                // CurrentValue가 10000보다 크면 충전, 작으면 방전 (0.01A 단위, -10000 오프셋)
+                const chargeCurrent = moduleData.packInfo && moduleData.packInfo.CurrentValue 
+                    ? (moduleData.packInfo.CurrentValue > 10000 ? moduleData.packInfo.CurrentValue - 10000 : 0)
+                    : 0;
+                this.mib.setScalarValue(`mod${moduleId}AlarmpackUndervoltageAlarm`, chargeCurrent);
+                
+                // DischargeCurrent를 알람 OID index 9에 매핑 (.1.3.6.1.4.1.64016.{moduleId}.3.9)
+                // CurrentValue가 10000보다 작으면 방전 (0.01A 단위, -10000 오프셋)
+                const dischargeCurrent = moduleData.packInfo && moduleData.packInfo.CurrentValue 
+                    ? (moduleData.packInfo.CurrentValue < 10000 ? 10000 - moduleData.packInfo.CurrentValue : 0)
+                    : 0;
+                this.mib.setScalarValue(`mod${moduleId}AlarmchargeOvercurrentAlarm`, dischargeCurrent);
+                
+                // SOC를 알람 OID index 10에 매핑 (.1.3.6.1.4.1.64016.{moduleId}.3.10)
+                // SOC는 100배 스케일링되어 있음 (10000 = 100%)
+                const rawSoc = moduleData.packInfo ? moduleData.packInfo.SOC || 0 : 0;
+                const soc = rawSoc >= 10000 ? Math.round(rawSoc / 100) : rawSoc; // 10000 이상이면 100으로 나누기
+                this.mib.setScalarValue(`mod${moduleId}AlarmdischargeOvercurrentAlarm`, soc);
+                
+                // SOH를 알람 OID index 11에 매핑 (.1.3.6.1.4.1.64016.{moduleId}.3.11)
+                // SOH는 100배 스케일링되어 있음 (10000 = 100%)
+                const rawSoh = moduleData.packInfo ? moduleData.packInfo.SOH || 0 : 0;
+                const soh = rawSoh >= 10000 ? Math.round(rawSoh / 100) : rawSoh; // 10000 이상이면 100으로 나누기
+                this.mib.setScalarValue(`mod${moduleId}AlarmsocLowAlarm`, soh);
+                
+                // RatedCapacity를 알람 OID index 12에 매핑 (.1.3.6.1.4.1.64016.{moduleId}.3.12)
+                const ratedCapacity = moduleData.packInfo ? moduleData.packInfo.FullCapacity || 0 : 0;
+                this.mib.setScalarValue(`mod${moduleId}AlarmratedCapacityAlarm`, ratedCapacity);
+                
+                // RemainingCapacity를 알람 OID index 13에 매핑 (.1.3.6.1.4.1.64016.{moduleId}.3.13)
+                const remainingCapacity = moduleData.packInfo ? moduleData.packInfo.remainingCapacity || 0 : 0;
+                this.mib.setScalarValue(`mod${moduleId}AlarmremainingCapacityAlarm`, remainingCapacity);
+                
+                // RunningState를 알람 OID index 14에 매핑 (.1.3.6.1.4.1.64016.{moduleId}.3.14)
+                // 1=Charge, 2=Discharge, 3=Stop
+                let runningState = 3; // 기본값: 정지
+                if (moduleData.packInfo && moduleData.packInfo.CurrentValue) {
+                    const currentValue = moduleData.packInfo.CurrentValue;
+                    if (currentValue > 10000) {
+                        runningState = 1; // 충전 중
+                    } else if (currentValue < 10000) {
+                        runningState = 2; // 방전 중
+                    } else {
+                        runningState = 3; // 정지 (CurrentValue == 10000)
+                    }
+                }
+                this.mib.setScalarValue(`mod${moduleId}AlarmrunningStateAlarm`, runningState);
+            }
+
+            // 파라미터 업데이트
+            if (moduleData.packInfo) {
+                // 셀 OV 상태를 파라미터 index 1에 설정 (.1.3.6.1.4.1.64016.{moduleId}.4.1)
+                this.mib.setScalarValue(`mod${moduleId}ParamcellOvervoltageAlarmValue`, cellOVState);
+                
+                // 셀 UV 상태를 파라미터 index 2에 설정 (.1.3.6.1.4.1.64016.{moduleId}.4.2)
+                this.mib.setScalarValue(`mod${moduleId}ParamcellOvervoltageAlarmRecovery`, cellUVState);
+                
+                // 충전 과전류 알람을 파라미터 index 9에 설정 (.1.3.6.1.4.1.64016.{moduleId}.4.9)
+                // 충전 전류가 100A 이상이면 1, 아니면 0 (chargeCurrent는 0.01A 단위이므로 100A = 10000)
+                const chargeCurrentForAlarm = moduleData.packInfo && moduleData.packInfo.CurrentValue 
+                    ? (moduleData.packInfo.CurrentValue > 10000 ? moduleData.packInfo.CurrentValue - 10000 : 0)
+                    : 0;
+                const chargeOvercurrentAlarm = chargeCurrentForAlarm >= 10000 ? 1 : 0; // 100A 이상이면 1
+                this.mib.setScalarValue(`mod${moduleId}ParamchargeOvercurrentAlarm`, chargeOvercurrentAlarm);
+                
+                // 방전 과전류 알람을 파라미터 index 10에 설정 (.1.3.6.1.4.1.64016.{moduleId}.4.10)
+                // 방전 전류가 -100A 이하(절댓값 100A 이상)이면 1, 아니면 0
+                // CurrentValue < 10000일 때 방전, dischargeCurrent = 10000 - CurrentValue (0.01A 단위)
+                const dischargeCurrentForAlarm = moduleData.packInfo && moduleData.packInfo.CurrentValue 
+                    ? (moduleData.packInfo.CurrentValue < 10000 ? 10000 - moduleData.packInfo.CurrentValue : 0)
+                    : 0;
+                const dischargeOvercurrentAlarm = dischargeCurrentForAlarm >= 10000 ? 1 : 0; // 100A 이상이면 1 (방전 전류가 -100A 이하)
+                this.mib.setScalarValue(`mod${moduleId}ParamdischargeOvercurrentAlarm`, dischargeOvercurrentAlarm);
+                
+                // SOC 저알람을 파라미터 index 11에 설정 (.1.3.6.1.4.1.64016.{moduleId}.4.11)
+                // SOC가 10% 미만이면 1, 아니면 0
+                const rawSoc = moduleData.packInfo ? moduleData.packInfo.SOC || 0 : 0;
+                const soc = rawSoc >= 10000 ? Math.round(rawSoc / 100) : rawSoc; // 10000 이상이면 100으로 나누기
+                // 이 부분은 처리하지 말자.
+                const socLowAlarm = soc < 0 ? 1 : 0; // 10% 미만이면 1
+                this.mib.setScalarValue(`mod${moduleId}ParamsocLowAlarm`, socLowAlarm);
             }
 
             loggerWinston.info(`[Battery MIB] 모듈 ${moduleId} SNMP 값 업데이트 완료`);

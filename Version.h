@@ -1,4 +1,5 @@
-#define version "VER_2.0.13"  // Narada 프로토콜 타임아웃 시간을 0.5초로 줄였다. 
+#define version "VER_2.0.14"  // SNMP 데이터 설정 오류 수정 
+//#define version "VER_2.0.13"  // Narada 프로토콜 타임아웃 시간을 0.5초로 줄였다. 
 //#define version "VER_2.0.12"  // Fix Discharge Log Bug 
 //#define version "VER_2.0.11"  // docker compose에 환경변수를 추가한다.  
 //#define version "VER_2.0.10"  // 팩 경보 상태를 추가한다.

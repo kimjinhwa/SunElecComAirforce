@@ -529,7 +529,11 @@ class BatteryModbusReader {
                         throw new Error('Narada 데이터 읽기 실패 - 기본값 반환됨');
                     }
                     
+                    console.log(`[DEBUG] 모듈 ${moduleId} - naradaData.cellVoltages:`, naradaData.cellVoltages?.slice(0, 5), `길이:`, naradaData.cellVoltages?.length);
+                    
                     const modbusData = NaradaDataParser.convertToModbusFormat(naradaData);
+                    console.log(`[DEBUG] 모듈 ${moduleId} - modbusData[14-18] (셀 전압):`, modbusData.slice(14, 19));
+                    
                     result = {
                         status: 'success',
                         data: modbusData,
