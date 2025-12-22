@@ -89,15 +89,78 @@ const modbusClient = new ModbusClient('192.168.1.100', 502);
 const batteryReader = new BatteryModbusReader(modbusClient);
 
 // 모든 모듈 데이터 읽기
-const systemData = await batteryReader.readAllModulesData();
+const moduleData = await batteryReader.readAllModulesData();
 
-// 특정 모듈 데이터 접근
-const module1 = systemData.getModule(1);
-console.log(`모듈1 SOC: ${module1.packInfo.soc}%`);
-console.log(`모듈1 셀1 전압: ${module1.cellVoltage.getCellVoltage(1)}mV`);
+// 특정 모듈 데이터 접근 (Modbus ID 기반: module39, module40, ...)
+const module39 = moduleData.module39;
+console.log(`모듈1 SOC: ${module39.packInfo.SOC}%`);
+console.log(`모듈1 셀1 전압: ${module39.cellVoltages[0]}mV`);
 ```
 
-### 3. 예제 실행
+### 3. moduleData 구조
+
+`readAllModulesData()` 함수가 반환하는 `moduleData` 객체의 구조:
+
+```javascript
+{
+  // Modbus ID를 키로 사용 (module39, module40, module41, ...)
+  module39: {
+    cellVoltages: [3335, 3323, 3323, ...], // 셀 전압 배열 (15개, mV 단위)
+    packInfo: {
+      packVoltage: 4986,              // 팩 전압 (0.01V 단위)
+      CurrentValue: 10000,            // 전류 (0.1A 단위, 10000 = 0A, 10000 이상 = 충전, 10000 미만 = 방전)
+      remainingCapacity: 10835,       // 잔여 용량
+      AverageCellTemp: 640,           // 평균 셀 온도 (0.1°C 단위, 400 오프셋 포함)
+      AmbientTemp: 590,               // 주변 온도 (0.1°C 단위, 400 오프셋 포함)
+      WarningFlag: 0,                 // 경고 플래그
+      ProtectionFlag: 0,              // 보호 플래그
+      FaultStatus: 0,                 // 오류 상태
+      SOC: 10000,                     // 충전 상태 (10000 = 100%)
+      CirculateNumber: 6,             // 순환 번호
+      SOH: 10000,                     // 건강 상태 (10000 = 100%)
+      PCBTemp: 640,                   // PCB 온도 (0.1°C 단위, 400 오프셋 포함)
+      HistoryDischargeCapacity: 0,    // 방전 용량
+      InstalledCellNumber: 15,        // 설치된 셀 수
+      TemperatureSensorNumber: 6,     // 온도 센서 수
+      cellTemperatures: [590, 590, 590, 590, 640, 590], // 온도 센서 배열 (6개, 0.1°C 단위, 400 오프셋 포함)
+      FullCapacity: 10835,           // 최대 용량
+      RemainChargeTime: 0,            // 잔여 충전 시간
+      RemainDischargeTime: 0,         // 잔여 방전 시간
+      CellUVState: 0                  // 셀 저전압 상태
+    },
+    alarms: {
+      warningFlag: 0,                 // 경고 플래그
+      protectionFlag: 0,              // 보호 플래그
+      faultStatus: 0                  // 오류 상태
+    },
+    parameters: {},                   // 파라미터 설정 (추후 구현)
+    timestamp: "2025-01-20T10:30:00.000Z", // 타임스탬프 (ISO 8601 형식)
+    result: {
+      status: "success",              // "success" 또는 "failed"
+      error: undefined,               // 에러 메시지 (실패 시)
+      data: [4986, 10000, 10835, ...], // 51개 레지스터 배열
+      buffer: <Buffer ...>             // 바이너리 버퍼
+    }
+  },
+  module40: { /* 동일한 구조 */ },
+  module41: { /* 동일한 구조 */ },
+  // ... 최대 8개 모듈 (module39 ~ module46)
+}
+```
+
+**주요 필드 설명:**
+- **cellVoltages**: 셀 전압 배열 (15개, mV 단위)
+- **packInfo.packVoltage**: 팩 전압 (0.01V 단위, 예: 4986 = 49.86V)
+- **packInfo.CurrentValue**: 전류 (0.1A 단위, 10000 = 0A, 10000 이상 = 충전, 10000 미만 = 방전)
+- **packInfo.SOC**: 충전 상태 (10000 = 100%, 5000 = 50%)
+- **packInfo.SOH**: 건강 상태 (10000 = 100%, 5000 = 50%)
+- **packInfo.AverageCellTemp**: 평균 셀 온도 (0.1°C 단위, 400 오프셋 포함, 예: 640 = 24.0°C)
+- **packInfo.AmbientTemp**: 주변 온도 (0.1°C 단위, 400 오프셋 포함)
+- **packInfo.cellTemperatures**: 온도 센서 배열 (6개, 0.1°C 단위, 400 오프셋 포함)
+- **result.status**: 데이터 읽기 상태 ("success" 또는 "failed")
+- **result.data**: 51개 레지스터 배열 (Modbus 형식)
+
+### 4. 예제 실행
 
 ```bash
 # 데이터 모델 사용 예제
