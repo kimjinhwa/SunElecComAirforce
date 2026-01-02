@@ -1,4 +1,4 @@
-IFTECH-NARADABMSSYSTEM-MIB DEFINITIONS ::= BEGIN
+IFTECH-BMSAIRFORCE-MIB DEFINITIONS ::= BEGIN
 
 IMPORTS
     RowStatus, DisplayString, DateAndTime
@@ -13,7 +13,7 @@ batModule MODULE-IDENTITY
     LAST-UPDATED    "202412140000Z"
     ORGANIZATION    "IFTECH FOR BATTERY Management System"
     CONTACT-INFO    "mvcjhkim@gmail.com"
-    DESCRIPTION     "This MIB module defines objects for 11-module BMS management from IFTECH with enhanced monitoring capabilities."
+    DESCRIPTION     "This MIB module defines objects for 10-module BMS management from IFTECH with enhanced monitoring capabilities."
     REVISION        "202412140000Z"
     DESCRIPTION     "Updated version with 10 modules supporting cell voltage, temperature, alarm and parameter monitoring."
     ::= { enterprises 64016 }
@@ -22,21 +22,13 @@ batModule MODULE-IDENTITY
 bmsModule1 OBJECT IDENTIFIER ::= { batModule 1 }
 bmsModule2 OBJECT IDENTIFIER ::= { batModule 2 }
 bmsModule3 OBJECT IDENTIFIER ::= { batModule 3 }
-bmsModule4 OBJECT IDENTIFIER ::= { batModule 4 }
-bmsModule5 OBJECT IDENTIFIER ::= { batModule 5 }
-bmsModule6 OBJECT IDENTIFIER ::= { batModule 6 }
-bmsModule7 OBJECT IDENTIFIER ::= { batModule 7 }
-bmsModule8 OBJECT IDENTIFIER ::= { batModule 8 }
-bmsModule9 OBJECT IDENTIFIER ::= { batModule 9 }
-bmsModule10 OBJECT IDENTIFIER ::= { batModule 10 }
 
 -- Common structure for each module
 -- Module 1 Objects
 module1CellVoltage OBJECT IDENTIFIER ::= { bmsModule1 1 }
-module1Temperature OBJECT IDENTIFIER ::= { bmsModule1 2 }
-module1PackInfo OBJECT IDENTIFIER ::= { bmsModule1 3 }
-module1Alarms OBJECT IDENTIFIER ::= { bmsModule1 4 }
-module1Parameters OBJECT IDENTIFIER ::= { bmsModule1 5 }
+module1PackInfo OBJECT IDENTIFIER ::= { bmsModule1 2 }
+module1Alarms OBJECT IDENTIFIER ::= { bmsModule1 3 }
+module1Parameters OBJECT IDENTIFIER ::= { bmsModule1 4 }
 
 -- Module 1 Cell Voltages (16 cells)
 mod1-cell1-voltage OBJECT-TYPE
@@ -167,63 +159,6 @@ mod1-cell16-voltage OBJECT-TYPE
     DESCRIPTION     "Module 1 Cell 16 voltage value in mV"
     ::= { module1CellVoltage 16 }
 
--- Module 1 Temperature Sensors
-mod1-temp1 OBJECT-TYPE
-    SYNTAX          Integer32
-    UNITS           "Celsius"
-    MAX-ACCESS      read-only
-    STATUS          current
-    DESCRIPTION     "Module 1 Temperature sensor 1 (-30 to 120 Celsius)"
-    ::= { module1Temperature 1 }
-
-mod1-temp2 OBJECT-TYPE
-    SYNTAX          Integer32
-    UNITS           "Celsius"
-    MAX-ACCESS      read-only
-    STATUS          current
-    DESCRIPTION     "Module 1 Temperature sensor 2"
-    ::= { module1Temperature 2 }
-
-mod1-temp3 OBJECT-TYPE
-    SYNTAX          Integer32
-    UNITS           "Celsius"
-    MAX-ACCESS      read-only
-    STATUS          current
-    DESCRIPTION     "Module 1 Temperature sensor 3"
-    ::= { module1Temperature 3 }
-
-mod1-temp4 OBJECT-TYPE
-    SYNTAX          Integer32
-    UNITS           "Celsius"
-    MAX-ACCESS      read-only
-    STATUS          current
-    DESCRIPTION     "Module 1 Temperature sensor 4"
-    ::= { module1Temperature 4 }
-
-mod1-mosfet-temp1 OBJECT-TYPE
-    SYNTAX          Integer32
-    UNITS           "Celsius"
-    MAX-ACCESS      read-only
-    STATUS          current
-    DESCRIPTION     "Module 1 MOSFET Temperature 1"
-    ::= { module1Temperature 5 }
-
-mod1-packVoltage2 OBJECT-TYPE
-    SYNTAX          Integer32
-    UNITS           "Celsius"
-    MAX-ACCESS      read-only
-    STATUS          current
-    DESCRIPTION     "Module 1 MOSFET Temperature 2"
-    ::= { module1Temperature 6 }
-
-mod1-ambient-temp OBJECT-TYPE
-    SYNTAX          Integer32
-    UNITS           "Celsius"
-    MAX-ACCESS      read-only
-    STATUS          current
-    DESCRIPTION     "Module 1 Ambient Temperature"
-    ::= { module1Temperature 7 }
-
 -- Module 1 Pack Information
 mod1-cell-max-voltage OBJECT-TYPE
     SYNTAX          Unsigned32
@@ -249,20 +184,20 @@ mod1-cell-avg-voltage OBJECT-TYPE
     DESCRIPTION     "Module 1 Average cell voltage"
     ::= { module1PackInfo 3 }
 
-mod1-max-temp OBJECT-TYPE
+mod1-avg-temp OBJECT-TYPE
     SYNTAX          Integer32
     UNITS           "Celsius"
     MAX-ACCESS      read-only
     STATUS          current
-    DESCRIPTION     "Module 1 Maximum temperature in pack"
+    DESCRIPTION     "Module 1 Average temperature in pack"
     ::= { module1PackInfo 4 }
 
-mod1-min-temp OBJECT-TYPE
+mod1-amb-temp OBJECT-TYPE
     SYNTAX          Integer32
     UNITS           "Celsius"
     MAX-ACCESS      read-only
     STATUS          current
-    DESCRIPTION     "Module 1 Minimum temperature in pack"
+    DESCRIPTION     "Module 1 ambiant temperature in pack"
     ::= { module1PackInfo 5 }
 
 mod1-total-voltage OBJECT-TYPE
@@ -351,34 +286,6 @@ mod1-cell-undervoltage-alarms OBJECT-TYPE
     DESCRIPTION     "Module 1 Cell undervoltage alarms (bit field for cells 1-16)"
     ::= { module1Alarms 2 }
 
-mod1-temp-charge-overheat-alarms OBJECT-TYPE
-    SYNTAX          Unsigned32
-    MAX-ACCESS      read-only
-    STATUS          current
-    DESCRIPTION     "Module 1 Temperature charge overheat alarms"
-    ::= { module1Alarms 3 }
-
-mod1-temp-charge-underheat-alarms OBJECT-TYPE
-    SYNTAX          Unsigned32
-    MAX-ACCESS      read-only
-    STATUS          current
-    DESCRIPTION     "Module 1 Temperature charge underheat alarms"
-    ::= { module1Alarms 4 }
-
-mod1-temp-discharge-overheat-alarms OBJECT-TYPE
-    SYNTAX          Unsigned32
-    MAX-ACCESS      read-only
-    STATUS          current
-    DESCRIPTION     "Module 1 Temperature discharge overheat alarms"
-    ::= { module1Alarms 5 }
-
-mod1-temp-discharge-underheat-alarms OBJECT-TYPE
-    SYNTAX          Unsigned32
-    MAX-ACCESS      read-only
-    STATUS          current
-    DESCRIPTION     "Module 1 Temperature discharge underheat alarms"
-    ::= { module1Alarms 6 }
-
 mod1-pack-overvoltage-alarm OBJECT-TYPE
     SYNTAX          Integer32 (0..1)
     MAX-ACCESS      read-only
@@ -447,13 +354,6 @@ mod1-cell-undervoltage-alarm-recovery OBJECT-TYPE
     DESCRIPTION     "Module 1 Cell undervoltage alarm recovery threshold"
     ::= { module1Parameters 4 }
 
-mod1-temp-charge-overheat-alarm-value OBJECT-TYPE
-    SYNTAX          Integer32
-    UNITS           "Celsius"
-    MAX-ACCESS      read-write
-    STATUS          current
-    DESCRIPTION     "Module 1 Temperature charge overheat alarm threshold (40-60)"
-    ::= { module1Parameters 5 }
 
 mod1-soc-low-alarm-value OBJECT-TYPE
     SYNTAX          Unsigned32
@@ -468,10 +368,9 @@ mod1-soc-low-alarm-value OBJECT-TYPE
 
 -- Module 2 Objects
 module2CellVoltage OBJECT IDENTIFIER ::= { bmsModule2 1 }
-module2Temperature OBJECT IDENTIFIER ::= { bmsModule2 2 }
-module2PackInfo OBJECT IDENTIFIER ::= { bmsModule2 3 }
-module2Alarms OBJECT IDENTIFIER ::= { bmsModule2 4 }
-module2Parameters OBJECT IDENTIFIER ::= { bmsModule2 5 }
+module2PackInfo OBJECT IDENTIFIER ::= { bmsModule2 2 }
+module2Alarms OBJECT IDENTIFIER ::= { bmsModule2 3 }
+module2Parameters OBJECT IDENTIFIER ::= { bmsModule2 4 }
 
 -- Module 2 Cell Voltages (16 cells)
 mod2-cell1-voltage OBJECT-TYPE
@@ -602,63 +501,6 @@ mod2-cell16-voltage OBJECT-TYPE
     DESCRIPTION     "Module 2 Cell 16 voltage value in mV"
     ::= { module2CellVoltage 16 }
 
--- Module 2 Temperature Sensors
-mod2-temp1 OBJECT-TYPE
-    SYNTAX          Integer32
-    UNITS           "Celsius"
-    MAX-ACCESS      read-only
-    STATUS          current
-    DESCRIPTION     "Module 2 Temperature sensor 1 (-30 to 120 Celsius)"
-    ::= { module2Temperature 1 }
-
-mod2-temp2 OBJECT-TYPE
-    SYNTAX          Integer32
-    UNITS           "Celsius"
-    MAX-ACCESS      read-only
-    STATUS          current
-    DESCRIPTION     "Module 2 Temperature sensor 2"
-    ::= { module2Temperature 2 }
-
-mod2-temp3 OBJECT-TYPE
-    SYNTAX          Integer32
-    UNITS           "Celsius"
-    MAX-ACCESS      read-only
-    STATUS          current
-    DESCRIPTION     "Module 2 Temperature sensor 3"
-    ::= { module2Temperature 3 }
-
-mod2-temp4 OBJECT-TYPE
-    SYNTAX          Integer32
-    UNITS           "Celsius"
-    MAX-ACCESS      read-only
-    STATUS          current
-    DESCRIPTION     "Module 2 Temperature sensor 4"
-    ::= { module2Temperature 4 }
-
-mod2-mosfet-temp1 OBJECT-TYPE
-    SYNTAX          Integer32
-    UNITS           "Celsius"
-    MAX-ACCESS      read-only
-    STATUS          current
-    DESCRIPTION     "Module 2 MOSFET Temperature 1"
-    ::= { module2Temperature 5 }
-
-mod2-packVoltage2 OBJECT-TYPE
-    SYNTAX          Integer32
-    UNITS           "Celsius"
-    MAX-ACCESS      read-only
-    STATUS          current
-    DESCRIPTION     "Module 2 MOSFET Temperature 2"
-    ::= { module2Temperature 6 }
-
-mod2-ambient-temp OBJECT-TYPE
-    SYNTAX          Integer32
-    UNITS           "Celsius"
-    MAX-ACCESS      read-only
-    STATUS          current
-    DESCRIPTION     "Module 2 Ambient Temperature"
-    ::= { module2Temperature 7 }
-
 -- Module 2 Pack Information
 mod2-cell-max-voltage OBJECT-TYPE
     SYNTAX          Unsigned32
@@ -684,20 +526,20 @@ mod2-cell-avg-voltage OBJECT-TYPE
     DESCRIPTION     "Module 2 Average cell voltage"
     ::= { module2PackInfo 3 }
 
-mod2-max-temp OBJECT-TYPE
+mod2-avg-temp OBJECT-TYPE
     SYNTAX          Integer32
     UNITS           "Celsius"
     MAX-ACCESS      read-only
     STATUS          current
-    DESCRIPTION     "Module 2 Maximum temperature in pack"
+    DESCRIPTION     "Module 2 Average temperature in pack"
     ::= { module2PackInfo 4 }
 
-mod2-min-temp OBJECT-TYPE
+mod2-amb-temp OBJECT-TYPE
     SYNTAX          Integer32
     UNITS           "Celsius"
     MAX-ACCESS      read-only
     STATUS          current
-    DESCRIPTION     "Module 2 Minimum temperature in pack"
+    DESCRIPTION     "Module 2 ambiant temperature in pack"
     ::= { module2PackInfo 5 }
 
 mod2-total-voltage OBJECT-TYPE
@@ -786,34 +628,6 @@ mod2-cell-undervoltage-alarms OBJECT-TYPE
     DESCRIPTION     "Module 2 Cell undervoltage alarms (bit field for cells 1-16)"
     ::= { module2Alarms 2 }
 
-mod2-temp-charge-overheat-alarms OBJECT-TYPE
-    SYNTAX          Unsigned32
-    MAX-ACCESS      read-only
-    STATUS          current
-    DESCRIPTION     "Module 2 Temperature charge overheat alarms"
-    ::= { module2Alarms 3 }
-
-mod2-temp-charge-underheat-alarms OBJECT-TYPE
-    SYNTAX          Unsigned32
-    MAX-ACCESS      read-only
-    STATUS          current
-    DESCRIPTION     "Module 2 Temperature charge underheat alarms"
-    ::= { module2Alarms 4 }
-
-mod2-temp-discharge-overheat-alarms OBJECT-TYPE
-    SYNTAX          Unsigned32
-    MAX-ACCESS      read-only
-    STATUS          current
-    DESCRIPTION     "Module 2 Temperature discharge overheat alarms"
-    ::= { module2Alarms 5 }
-
-mod2-temp-discharge-underheat-alarms OBJECT-TYPE
-    SYNTAX          Unsigned32
-    MAX-ACCESS      read-only
-    STATUS          current
-    DESCRIPTION     "Module 2 Temperature discharge underheat alarms"
-    ::= { module2Alarms 6 }
-
 mod2-pack-overvoltage-alarm OBJECT-TYPE
     SYNTAX          Integer32 (0..1)
     MAX-ACCESS      read-only
@@ -882,14 +696,6 @@ mod2-cell-undervoltage-alarm-recovery OBJECT-TYPE
     DESCRIPTION     "Module 2 Cell undervoltage alarm recovery threshold"
     ::= { module2Parameters 4 }
 
-mod2-temp-charge-overheat-alarm-value OBJECT-TYPE
-    SYNTAX          Integer32
-    UNITS           "Celsius"
-    MAX-ACCESS      read-write
-    STATUS          current
-    DESCRIPTION     "Module 2 Temperature charge overheat alarm threshold (40-60)"
-    ::= { module2Parameters 5 }
-
 mod2-soc-low-alarm-value OBJECT-TYPE
     SYNTAX          Unsigned32
     UNITS           "percent"
@@ -900,10 +706,9 @@ mod2-soc-low-alarm-value OBJECT-TYPE
 
 -- Module 3 Objects
 module3CellVoltage OBJECT IDENTIFIER ::= { bmsModule3 1 }
-module3Temperature OBJECT IDENTIFIER ::= { bmsModule3 2 }
-module3PackInfo OBJECT IDENTIFIER ::= { bmsModule3 3 }
-module3Alarms OBJECT IDENTIFIER ::= { bmsModule3 4 }
-module3Parameters OBJECT IDENTIFIER ::= { bmsModule3 5 }
+module3PackInfo OBJECT IDENTIFIER ::= { bmsModule3 2 }
+module3Alarms OBJECT IDENTIFIER ::= { bmsModule3 3 }
+module3Parameters OBJECT IDENTIFIER ::= { bmsModule3 4 }
 
 -- Module 3 Cell Voltages (16 cells)
 mod3-cell1-voltage OBJECT-TYPE
@@ -1034,63 +839,6 @@ mod3-cell16-voltage OBJECT-TYPE
     DESCRIPTION     "Module 3 Cell 16 voltage value in mV"
     ::= { module3CellVoltage 16 }
 
--- Module 3 Temperature Sensors
-mod3-temp1 OBJECT-TYPE
-    SYNTAX          Integer32
-    UNITS           "Celsius"
-    MAX-ACCESS      read-only
-    STATUS          current
-    DESCRIPTION     "Module 3 Temperature sensor 1 (-30 to 120 Celsius)"
-    ::= { module3Temperature 1 }
-
-mod3-temp2 OBJECT-TYPE
-    SYNTAX          Integer32
-    UNITS           "Celsius"
-    MAX-ACCESS      read-only
-    STATUS          current
-    DESCRIPTION     "Module 3 Temperature sensor 2"
-    ::= { module3Temperature 2 }
-
-mod3-temp3 OBJECT-TYPE
-    SYNTAX          Integer32
-    UNITS           "Celsius"
-    MAX-ACCESS      read-only
-    STATUS          current
-    DESCRIPTION     "Module 3 Temperature sensor 3"
-    ::= { module3Temperature 3 }
-
-mod3-temp4 OBJECT-TYPE
-    SYNTAX          Integer32
-    UNITS           "Celsius"
-    MAX-ACCESS      read-only
-    STATUS          current
-    DESCRIPTION     "Module 3 Temperature sensor 4"
-    ::= { module3Temperature 4 }
-
-mod3-mosfet-temp1 OBJECT-TYPE
-    SYNTAX          Integer32
-    UNITS           "Celsius"
-    MAX-ACCESS      read-only
-    STATUS          current
-    DESCRIPTION     "Module 3 MOSFET Temperature 1"
-    ::= { module3Temperature 5 }
-
-mod3-packVoltage2 OBJECT-TYPE
-    SYNTAX          Integer32
-    UNITS           "Celsius"
-    MAX-ACCESS      read-only
-    STATUS          current
-    DESCRIPTION     "Module 3 MOSFET Temperature 2"
-    ::= { module3Temperature 6 }
-
-mod3-ambient-temp OBJECT-TYPE
-    SYNTAX          Integer32
-    UNITS           "Celsius"
-    MAX-ACCESS      read-only
-    STATUS          current
-    DESCRIPTION     "Module 3 Ambient Temperature"
-    ::= { module3Temperature 7 }
-
 -- Module 3 Pack Information
 mod3-cell-max-voltage OBJECT-TYPE
     SYNTAX          Unsigned32
@@ -1116,20 +864,20 @@ mod3-cell-avg-voltage OBJECT-TYPE
     DESCRIPTION     "Module 3 Average cell voltage"
     ::= { module3PackInfo 3 }
 
-mod3-max-temp OBJECT-TYPE
+mod3-avg-temp OBJECT-TYPE
     SYNTAX          Integer32
     UNITS           "Celsius"
     MAX-ACCESS      read-only
     STATUS          current
-    DESCRIPTION     "Module 3 Maximum temperature in pack"
+    DESCRIPTION     "Module 3 Average temperature in pack"
     ::= { module3PackInfo 4 }
 
-mod3-min-temp OBJECT-TYPE
+mod3-amb-temp OBJECT-TYPE
     SYNTAX          Integer32
     UNITS           "Celsius"
     MAX-ACCESS      read-only
     STATUS          current
-    DESCRIPTION     "Module 3 Minimum temperature in pack"
+    DESCRIPTION     "Module 3 ambiant temperature in pack"
     ::= { module3PackInfo 5 }
 
 mod3-total-voltage OBJECT-TYPE
@@ -1218,34 +966,6 @@ mod3-cell-undervoltage-alarms OBJECT-TYPE
     DESCRIPTION     "Module 3 Cell undervoltage alarms (bit field for cells 1-16)"
     ::= { module3Alarms 2 }
 
-mod3-temp-charge-overheat-alarms OBJECT-TYPE
-    SYNTAX          Unsigned32
-    MAX-ACCESS      read-only
-    STATUS          current
-    DESCRIPTION     "Module 3 Temperature charge overheat alarms"
-    ::= { module3Alarms 3 }
-
-mod3-temp-charge-underheat-alarms OBJECT-TYPE
-    SYNTAX          Unsigned32
-    MAX-ACCESS      read-only
-    STATUS          current
-    DESCRIPTION     "Module 3 Temperature charge underheat alarms"
-    ::= { module3Alarms 4 }
-
-mod3-temp-discharge-overheat-alarms OBJECT-TYPE
-    SYNTAX          Unsigned32
-    MAX-ACCESS      read-only
-    STATUS          current
-    DESCRIPTION     "Module 3 Temperature discharge overheat alarms"
-    ::= { module3Alarms 5 }
-
-mod3-temp-discharge-underheat-alarms OBJECT-TYPE
-    SYNTAX          Unsigned32
-    MAX-ACCESS      read-only
-    STATUS          current
-    DESCRIPTION     "Module 3 Temperature discharge underheat alarms"
-    ::= { module3Alarms 6 }
-
 mod3-pack-overvoltage-alarm OBJECT-TYPE
     SYNTAX          Integer32 (0..1)
     MAX-ACCESS      read-only
@@ -1314,14 +1034,6 @@ mod3-cell-undervoltage-alarm-recovery OBJECT-TYPE
     DESCRIPTION     "Module 3 Cell undervoltage alarm recovery threshold"
     ::= { module3Parameters 4 }
 
-mod3-temp-charge-overheat-alarm-value OBJECT-TYPE
-    SYNTAX          Integer32
-    UNITS           "Celsius"
-    MAX-ACCESS      read-write
-    STATUS          current
-    DESCRIPTION     "Module 3 Temperature charge overheat alarm threshold (40-60)"
-    ::= { module3Parameters 5 }
-
 mod3-soc-low-alarm-value OBJECT-TYPE
     SYNTAX          Unsigned32
     UNITS           "percent"
@@ -1332,55 +1044,6 @@ mod3-soc-low-alarm-value OBJECT-TYPE
 
 -- Due to length constraints, I'll continue with a simplified approach for modules 4-10
 -- Each module follows the exact same pattern as modules 1-3
-
--- Module 4 Objects
-module4CellVoltage OBJECT IDENTIFIER ::= { bmsModule4 1 }
-module4Temperature OBJECT IDENTIFIER ::= { bmsModule4 2 }
-module4PackInfo OBJECT IDENTIFIER ::= { bmsModule4 3 }
-module4Alarms OBJECT IDENTIFIER ::= { bmsModule4 4 }
-module4Parameters OBJECT IDENTIFIER ::= { bmsModule4 5 }
-
--- Module 5 Objects
-module5CellVoltage OBJECT IDENTIFIER ::= { bmsModule5 1 }
-module5Temperature OBJECT IDENTIFIER ::= { bmsModule5 2 }
-module5PackInfo OBJECT IDENTIFIER ::= { bmsModule5 3 }
-module5Alarms OBJECT IDENTIFIER ::= { bmsModule5 4 }
-module5Parameters OBJECT IDENTIFIER ::= { bmsModule5 5 }
-
--- Module 6 Objects
-module6CellVoltage OBJECT IDENTIFIER ::= { bmsModule6 1 }
-module6Temperature OBJECT IDENTIFIER ::= { bmsModule6 2 }
-module6PackInfo OBJECT IDENTIFIER ::= { bmsModule6 3 }
-module6Alarms OBJECT IDENTIFIER ::= { bmsModule6 4 }
-module6Parameters OBJECT IDENTIFIER ::= { bmsModule6 5 }
-
--- Module 7 Objects
-module7CellVoltage OBJECT IDENTIFIER ::= { bmsModule7 1 }
-module7Temperature OBJECT IDENTIFIER ::= { bmsModule7 2 }
-module7PackInfo OBJECT IDENTIFIER ::= { bmsModule7 3 }
-module7Alarms OBJECT IDENTIFIER ::= { bmsModule7 4 }
-module7Parameters OBJECT IDENTIFIER ::= { bmsModule7 5 }
-
--- Module 8 Objects
-module8CellVoltage OBJECT IDENTIFIER ::= { bmsModule8 1 }
-module8Temperature OBJECT IDENTIFIER ::= { bmsModule8 2 }
-module8PackInfo OBJECT IDENTIFIER ::= { bmsModule8 3 }
-module8Alarms OBJECT IDENTIFIER ::= { bmsModule8 4 }
-module8Parameters OBJECT IDENTIFIER ::= { bmsModule8 5 }
-
--- Module 9 Objects
-module9CellVoltage OBJECT IDENTIFIER ::= { bmsModule9 1 }
-module9Temperature OBJECT IDENTIFIER ::= { bmsModule9 2 }
-module9PackInfo OBJECT IDENTIFIER ::= { bmsModule9 3 }
-module9Alarms OBJECT IDENTIFIER ::= { bmsModule9 4 }
-module9Parameters OBJECT IDENTIFIER ::= { bmsModule9 5 }
-
--- Module 10 Objects
-module10CellVoltage OBJECT IDENTIFIER ::= { bmsModule10 1 }
-module10Temperature OBJECT IDENTIFIER ::= { bmsModule10 2 }
-module10PackInfo OBJECT IDENTIFIER ::= { bmsModule10 3 }
-module10Alarms OBJECT IDENTIFIER ::= { bmsModule10 4 }
-module10Parameters OBJECT IDENTIFIER ::= { bmsModule10 5 }
 
 -- NOTE: For space efficiency, only showing structure for modules 4-10
 -- In full implementation, each module would have all objects like modules 1-3:
@@ -1397,20 +1060,17 @@ module1Group OBJECT-GROUP
         mod1-cell5-voltage, mod1-cell6-voltage, mod1-cell7-voltage, mod1-cell8-voltage,
         mod1-cell9-voltage, mod1-cell10-voltage, mod1-cell11-voltage, mod1-cell12-voltage,
         mod1-cell13-voltage, mod1-cell14-voltage, mod1-cell15-voltage, mod1-cell16-voltage,
-        mod1-temp1, mod1-temp2, mod1-temp3, mod1-temp4,
-        mod1-mosfet-temp1, mod1-packVoltage2, mod1-ambient-temp,
+        mod1-ambient-temp,
         mod1-cell-max-voltage, mod1-cell-min-voltage, mod1-cell-avg-voltage,
-        mod1-max-temp, mod1-min-temp, mod1-total-voltage, mod1-pack-voltage,
+        mod1-avg-temp, mod1-amb-temp, mod1-total-voltage, mod1-pack-voltage,
         mod1-charge-current, mod1-discharge-current, mod1-soc, mod1-soh,
         mod1-rated-capacity, mod1-remaining-capacity, mod1-running-state,
         mod1-cell-overvoltage-alarms, mod1-cell-undervoltage-alarms,
-        mod1-temp-charge-overheat-alarms, mod1-temp-charge-underheat-alarms,
-        mod1-temp-discharge-overheat-alarms, mod1-temp-discharge-underheat-alarms,
         mod1-pack-overvoltage-alarm, mod1-pack-undervoltage-alarm,
         mod1-charge-overcurrent-alarm, mod1-discharge-overcurrent-alarm, mod1-soc-low-alarm,
         mod1-cell-overvoltage-alarm-value, mod1-cell-overvoltage-alarm-recovery,
         mod1-cell-undervoltage-alarm-value, mod1-cell-undervoltage-alarm-recovery,
-        mod1-temp-charge-overheat-alarm-value, mod1-soc-low-alarm-value
+        mod1-soc-low-alarm-value
     }
     STATUS current
     DESCRIPTION "Complete objects for BMS Module 1"
@@ -1422,20 +1082,17 @@ module2Group OBJECT-GROUP
         mod2-cell5-voltage, mod2-cell6-voltage, mod2-cell7-voltage, mod2-cell8-voltage,
         mod2-cell9-voltage, mod2-cell10-voltage, mod2-cell11-voltage, mod2-cell12-voltage,
         mod2-cell13-voltage, mod2-cell14-voltage, mod2-cell15-voltage, mod2-cell16-voltage,
-        mod2-temp1, mod2-temp2, mod2-temp3, mod2-temp4,
-        mod2-mosfet-temp1, mod2-packVoltage2, mod2-ambient-temp,
+        mod2-ambient-temp,
         mod2-cell-max-voltage, mod2-cell-min-voltage, mod2-cell-avg-voltage,
-        mod2-max-temp, mod2-min-temp, mod2-total-voltage, mod2-pack-voltage,
+        mod2-avg-temp, mod2-amb-temp, mod2-total-voltage, mod2-pack-voltage,
         mod2-charge-current, mod2-discharge-current, mod2-soc, mod2-soh,
         mod2-rated-capacity, mod2-remaining-capacity, mod2-running-state,
         mod2-cell-overvoltage-alarms, mod2-cell-undervoltage-alarms,
-        mod2-temp-charge-overheat-alarms, mod2-temp-charge-underheat-alarms,
-        mod2-temp-discharge-overheat-alarms, mod2-temp-discharge-underheat-alarms,
         mod2-pack-overvoltage-alarm, mod2-pack-undervoltage-alarm,
         mod2-charge-overcurrent-alarm, mod2-discharge-overcurrent-alarm, mod2-soc-low-alarm,
         mod2-cell-overvoltage-alarm-value, mod2-cell-overvoltage-alarm-recovery,
         mod2-cell-undervoltage-alarm-value, mod2-cell-undervoltage-alarm-recovery,
-        mod2-temp-charge-overheat-alarm-value, mod2-soc-low-alarm-value
+         mod2-soc-low-alarm-value
     }
     STATUS current
     DESCRIPTION "Complete objects for BMS Module 2"
@@ -1447,20 +1104,17 @@ module3Group OBJECT-GROUP
         mod3-cell5-voltage, mod3-cell6-voltage, mod3-cell7-voltage, mod3-cell8-voltage,
         mod3-cell9-voltage, mod3-cell10-voltage, mod3-cell11-voltage, mod3-cell12-voltage,
         mod3-cell13-voltage, mod3-cell14-voltage, mod3-cell15-voltage, mod3-cell16-voltage,
-        mod3-temp1, mod3-temp2, mod3-temp3, mod3-temp4,
-        mod3-mosfet-temp1, mod3-packVoltage2, mod3-ambient-temp,
+        mod3-ambient-temp,
         mod3-cell-max-voltage, mod3-cell-min-voltage, mod3-cell-avg-voltage,
-        mod3-max-temp, mod3-min-temp, mod3-total-voltage, mod3-pack-voltage,
+        mod3-avg-temp, mod3-amb-temp, mod3-total-voltage, mod3-pack-voltage,
         mod3-charge-current, mod3-discharge-current, mod3-soc, mod3-soh,
         mod3-rated-capacity, mod3-remaining-capacity, mod3-running-state,
         mod3-cell-overvoltage-alarms, mod3-cell-undervoltage-alarms,
-        mod3-temp-charge-overheat-alarms, mod3-temp-charge-underheat-alarms,
-        mod3-temp-discharge-overheat-alarms, mod3-temp-discharge-underheat-alarms,
         mod3-pack-overvoltage-alarm, mod3-pack-undervoltage-alarm,
         mod3-charge-overcurrent-alarm, mod3-discharge-overcurrent-alarm, mod3-soc-low-alarm,
         mod3-cell-overvoltage-alarm-value, mod3-cell-overvoltage-alarm-recovery,
         mod3-cell-undervoltage-alarm-value, mod3-cell-undervoltage-alarm-recovery,
-        mod3-temp-charge-overheat-alarm-value, mod3-soc-low-alarm-value
+         mod3-soc-low-alarm-value
     }
     STATUS current
     DESCRIPTION "Complete objects for BMS Module 3"
